@@ -1,0 +1,37 @@
+---
+title: "Get memory"
+description: "Retrieve a single memory by its unique identifier."
+---
+
+<ParamField header="Flumes-API-Key" type="string" required>
+API key for authentication.
+</ParamField>
+
+<ParamField path="memory_id" type="string" required>
+Unique identifier returned when the memory was created.
+</ParamField>
+
+<RequestExample>
+```bash cURL
+curl -X GET "https://api.your-domain.com/v1/memories/mem_8dfe6a4f" \
+  -H "Flumes-API-Key: $FLUMES_API_KEY"
+```
+</RequestExample>
+
+<ResponseExample>
+```json Success
+{
+  "id": "mem_8dfe6a4f",
+  "memory": "Paris is the capital of France.",
+  "user_id": "session-123",
+  "hash": "40b118...",
+  "created_at": "2024-06-30T12:10:23Z",
+  "updated_at": "2024-06-30T12:10:23Z",
+  "metadata": {"source": "chat"}
+}
+```
+</ResponseExample>
+
+<Warning>
+If the `memory_id` does not exist or you do not have permission to access it, the server responds with **404 Not Found**.
+</Warning>

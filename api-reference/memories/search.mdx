@@ -1,0 +1,62 @@
+---
+title: "Search or list memories"
+description: "Retrieve recent memories or perform semantic search within a user, agent, or run scope."
+---
+
+<ParamField header="Flumes-API-Key" type="string" required>
+API key for authentication.
+</ParamField>
+
+<ParamField query="user_id" type="string">
+Filter memories belonging to a specific user or session.
+</ParamField>
+
+<ParamField query="agent_id" type="string">
+Filter by agent identifier. At least one of `user_id` or `agent_id` is required.
+</ParamField>
+
+<ParamField query="query" type="string">
+Search term. If omitted the endpoint returns the most recent memories sorted by creation time.
+</ParamField>
+
+<ParamField query="limit" type="integer" default="20">
+Maximum number of results to return (1-200).
+</ParamField>
+
+<Tabs>
+<Tab title="List latest memories">
+<RequestExample>
+```bash cURL
+curl -X GET "https://api.your-domain.com/v1/memories?user_id=session-123&limit=5" \
+  -H "Flumes-API-Key: $FLUMES_API_KEY"
+```
+</RequestExample>
+</Tab>
+
+<Tab title="Semantic search">
+<RequestExample>
+```bash cURL
+curl -G "https://api.your-domain.com/v1/memories" \
+  --data-urlencode "user_id=session-123" \
+  --data-urlencode "query=What is the capital of France?" \
+  -H "Flumes-API-Key: $FLUMES_API_KEY"
+```
+</RequestExample>
+</Tab>
+</Tabs>
+
+<ResponseExample>
+```json Success
+{
+  "results": [
+    {
+      "id": "mem_8dfe6a4f",
+      "memory": "Paris is the capital of France.",
+      "user_id": "session-123",
+      "score": 0.97,
+      "created_at": "2024-06-30T12:10:23Z"
+    }
+  ]
+}
+```
+</ResponseExample>

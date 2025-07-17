@@ -1,0 +1,40 @@
+---
+title: "Update memory"
+description: "Modify the content or metadata of an existing memory."
+---
+
+<ParamField header="Flumes-API-Key" type="string" required>
+API key for authentication.
+</ParamField>
+
+<ParamField path="memory_id" type="string" required>
+Identifier of the memory you want to update.
+</ParamField>
+
+<ParamField body="memory" type="string" required>
+New memory text that replaces the existing content.
+</ParamField>
+
+<ParamField body="metadata" type="object">
+Optional metadata object to merge with the existing metadata.
+</ParamField>
+
+<RequestExample>
+```bash cURL
+curl -X PATCH "https://api.your-domain.com/v1/memories/mem_8dfe6a4f" \
+  -H "Content-Type: application/json" \
+  -H "Flumes-API-Key: $FLUMES_API_KEY" \
+  -d '{
+    "memory": "Paris is the capital city of France.",
+    "metadata": {"edited_by": "agent-42"}
+  }'
+```
+</RequestExample>
+
+<ResponseExample>
+```json Success
+{
+  "message": "Memory updated successfully!"
+}
+```
+</ResponseExample>

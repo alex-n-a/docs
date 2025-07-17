@@ -1,0 +1,86 @@
+---
+title: "Add memory"
+description: "Create one or more memories from chat messages."
+---
+
+<Steps>
+<Step title="Compose request">
+Send a **POST** request to `/v1/memories` with a JSON body that contains at least one message and at least one identifier (`user_id`, `agent_id`, or `run_id`).
+
+<ParamField header="Flumes-API-Key" type="string" required>
+API key for authentication.
+</ParamField>
+
+<ParamField body="messages" type="array[object]" required>
+Array of chat messages in chronological order. Each object must include `role` (`user` or `assistant`) and `content` (string).
+</ParamField>
+
+<ParamField body="user_id" type="string">
+Session or user identifier that scopes the memory. **Required if** `agent_id` and `run_id` are omitted.
+</ParamField>
+
+<ParamField body="agent_id" type="string">
+Agent identifier that scopes the memory. Alternative to `user_id`.
+</ParamField>
+
+<ParamField body="run_id" type="string">
+Run identifier that scopes the memory. Alternative to `user_id`.
+</ParamField>
+
+<ParamField body="metadata" type="object">
+Arbitrary key–value pairs saved alongside the memory.
+</ParamField>
+
+<ParamField body="infer" type="boolean" default="true">
+When `true` (default) the backend uses an LLM to extract salient facts, deduplicate, and decide whether to add, update, or delete memories automatically. Set to `false` to store the raw messages exactly as provided.
+</ParamField>
+</Step>
+
+<Step title="Send request">
+<RequestExample>
+```bash cURL
+curl -X POST "https://api.your-domain.com/v1/memories" \
+  -H "Content-Type: application/json" \
+  -H "Flumes-API-Key: $FLUMES_API_KEY" \
+  -d '{
+    "messages": [
+      {"role": "user", "content": "The capital of France is Paris."},
+      {"role": "assistant", "content": "Correct, Paris is the capital of France."}
+    ],
+    "user_id": "session-123",
+    "metadata": {"source": "chat"},
+    "infer": true
+  }'
+```
+</RequestExample>
+</Step>
+
+<Step title="Review response">
+A successful request returns **200 OK** with the newly created or updated memories.
+
+<ResponseExample>
+```json Success
+{
+  "results": [
+    {
+      "id": "mem_8dfe6a4f",
+      "memory": "Paris is the capital of France.",
+      "event": "ADD",
+      "user_id": "session-123",
+      "created_at": "2024-06-30T12:10:23Z"
+    }
+  ]
+}
+```
+</ResponseExample>
+
+<Check>
+You should receive a list with at least one item inside `results`.
+</Check>
+</Step>
+</Steps>
+
+## Expected outcomes
+
+- The response contains the newly created memory IDs so you can reference them later.
+- Subsequent `GET /v1/memories/{id}` requests return the stored content and metadata.

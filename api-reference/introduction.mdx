@@ -1,33 +1,72 @@
 ---
-title: 'Introduction'
-description: 'Example section for showcasing API endpoints'
+title: "Flumes Memory API Overview"
+description: "Learn the core concepts, authentication method, rate limits, and base URL for interacting with the Flumes Memory API."
 ---
 
-<Note>
-  If you're not looking to build API reference documentation, you can delete
-  this section by removing the api-reference folder.
-</Note>
+<Info>
+This documentation reflects the current **MVP** version of the Flumes Memory API (path prefix `/v1`) implemented in the repository `/flumes`. Future versions may add additional endpoints and data stores. All examples in this section assume the default in-memory FAISS vector store unless otherwise noted.
+</Info>
 
-## Welcome
+## Base URL
 
-There are two ways to build API documentation: [OpenAPI](https://mintlify.com/docs/api-playground/openapi/setup) and [MDX components](https://mintlify.com/docs/api-playground/mdx/configuration). For the starter kit, we are using the following OpenAPI specification.
+```text
+https://api.your-domain.com/v1
+```
 
-<Card
-  title="Plant Store Endpoints"
-  icon="leaf"
-  href="https://github.com/mintlify/starter/blob/main/api-reference/openapi.json"
->
-  View the OpenAPI specification file
-</Card>
+<Tip>
+Replace `https://api.your-domain.com` with the hostname where you deploy the `flumes.api.main` FastAPI app. In local development with Uvicorn the base URL is usually `http://localhost:8000`.
+</Tip>
 
 ## Authentication
 
-All API endpoints are authenticated using Bearer tokens and picked up from the specification file.
+All requests must include an API key in one of the following headers:
+
+<ParamField header="Flumes-API-Key" type="string" required>
+Primary header for supplying the API key.
+</ParamField>
+
+<ParamField header="Authorization" type="string">
+Standard `Bearer` token header. Format: `Authorization: Bearer &lt;YOUR_API_KEY&gt;`.
+</ParamField>
+
+<Note>
+Both headers are accepted. If you send **both** in the same request the value in `Flumes-API-Key` takes precedence.
+</Note>
+
+If the key is missing or invalid the server responds with **401 Unauthorized**.
+
+## Rate limits
+
+<Warning>
+Each API key is limited to **60 requests per minute** by default. Exceeding this limit returns **429 Too Many Requests**. The limit can be adjusted with the `FLUMES_RATE_LIMIT` environment variable on the server.
+</Warning>
+
+## Error handling
+
+All error responses share a common JSON structure:
 
 ```json
-"security": [
-  {
-    "bearerAuth": []
-  }
-]
+{
+  "detail": "Human-readable error message"
+}
 ```
+
+The following table lists standard HTTP status codes returned by the API:
+
+| Code | Meaning | Typical causes |
+|------|---------|----------------|
+| 400  | Bad Request | Missing required parameters, invalid JSON payload |
+| 401  | Unauthorized | API key missing / revoked |
+| 404  | Not Found | Memory id does not exist |
+| 429  | Too Many Requests | Rate limit or monthly quota exceeded |
+| 500  | Internal Server Error | Unhandled exception on the server |
+
+## Endpoint quick links
+
+<CardGroup cols={2}>
+<Card title="Add memory" href="/api-reference/memories/add" icon="plus-circle">Create new memories from chat messages.</Card>
+<Card title="Get memory" href="/api-reference/memories/get" icon="magnifying-glass">Retrieve a single memory by ID.</Card>
+<Card title="Search memories" href="/api-reference/memories/search" icon="magnifying-glass">Semantic search or list recent memories.</Card>
+<Card title="Update memory" href="/api-reference/memories/update" icon="pencil-square">Modify an existing memory.</Card>
+<Card title="Delete memory" href="/api-reference/memories/delete" icon="trash">Permanently remove a memory.</Card>
+</CardGroup>

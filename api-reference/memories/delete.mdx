@@ -1,0 +1,31 @@
+---
+title: "Delete memory"
+description: "Remove a memory permanently using its ID."
+---
+
+<ParamField header="Flumes-API-Key" type="string" required>
+API key for authentication.
+</ParamField>
+
+<ParamField path="memory_id" type="string" required>
+Identifier of the memory to delete.
+</ParamField>
+
+<RequestExample>
+```bash cURL
+curl -X DELETE "https://api.your-domain.com/v1/memories/mem_8dfe6a4f" \
+  -H "Flumes-API-Key: $FLUMES_API_KEY"
+```
+</RequestExample>
+
+<ResponseExample>
+```json Success
+{
+  "message": "Memory deleted successfully!"
+}
+```
+</ResponseExample>
+
+<Warning>
+Deletion is irreversible. Ensure you no longer need the memory before calling this endpoint.
+</Warning>
