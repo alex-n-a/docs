@@ -7,8 +7,8 @@ description: "Create one or more memories from chat messages."
 <Step title="Compose request">
 Send a **POST** request to `/v1/memories` with a JSON body that contains at least one message and at least one identifier (`user_id`, `agent_id`, or `run_id`).
 
-<ParamField header="Flumes-API-Key" type="string" required>
-API key for authentication.
+<ParamField header="Authorization" type="string" required>
+Bearer token used for authentication. Format: `Bearer YOUR_API_KEY`.
 </ParamField>
 
 <ParamField body="messages" type="array[object]" required>
@@ -39,9 +39,9 @@ When `true` (default) the backend uses an LLM to extract salient facts, deduplic
 <Step title="Send request">
 <RequestExample>
 ```bash cURL
-curl -X POST "https://api.your-domain.com/v1/memories" \
+curl -X POST "https://api.flumes.com/v1/memories" \
   -H "Content-Type: application/json" \
-  -H "Flumes-API-Key: $FLUMES_API_KEY" \
+  -H "Authorization: Bearer $FLUMES_API_KEY" \
   -d '{
     "messages": [
       {"role": "user", "content": "The capital of France is Paris."},

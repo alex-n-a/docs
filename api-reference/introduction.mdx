@@ -10,28 +10,24 @@ This documentation reflects the current **MVP** version of the Flumes Memory API
 ## Base URL
 
 ```text
-https://api.your-domain.com/v1
+https://api.flumes.com/v1
 ```
 
 <Tip>
-Replace `https://api.your-domain.com` with the hostname where you deploy the `flumes.api.main` FastAPI app. In local development with Uvicorn the base URL is usually `http://localhost:8000`.
+This endpoint is served from Flumes Cloud at `https://api.flumes.com`. If you run the API locally the base URL is typically `http://localhost:8000`.
 </Tip>
 
 ## Authentication
 
-All requests must include an API key in one of the following headers:
+All requests must include an API key using the `Authorization` header:
 
-<ParamField header="Flumes-API-Key" type="string" required>
-Primary header for supplying the API key.
+<ParamField header="Authorization" type="string" required>
+Bearer token for authentication. Format: `Authorization: Bearer <YOUR_API_KEY>`.
 </ParamField>
 
-<ParamField header="Authorization" type="string">
-Standard `Bearer` token header. Format: `Authorization: Bearer &lt;YOUR_API_KEY&gt;`.
-</ParamField>
-
-<Note>
-Both headers are accepted. If you send **both** in the same request the value in `Flumes-API-Key` takes precedence.
-</Note>
+<Info>
+You can generate and manage your API keys from the Flumes dashboard at [app.flumes.ai](https://app.flumes.ai/).
+</Info>
 
 If the key is missing or invalid the server responds with **401 Unauthorized**.
 

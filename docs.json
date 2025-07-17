@@ -1,13 +1,17 @@
 {
   "$schema": "https://mintlify.com/docs.json",
   "theme": "mint",
-  "name": "Flumes Memory API Docs",
+  "name": "Flumes AI",
   "colors": {
     "primary": "#16A34A",
     "light": "#07C983",
     "dark": "#15803D"
   },
   "favicon": "/favicon.svg",
+  "appearance": {
+    "default": "light",
+    "strict": true
+  },
   "navigation": {
     "tabs": [
       {
@@ -90,8 +94,9 @@
     }
   },
   "logo": {
-    "light": "/logo/light.svg",
-    "dark": "/logo/dark.svg"
+    "light": "/images/flumes-logo-memory.png",
+    "dark": "/images/flumes-logo-memory.png",
+    "href": "https://flumes.ai"
   },
   "navbar": {
     "links": [

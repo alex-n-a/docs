@@ -3,8 +3,8 @@ title: "Search or list memories"
 description: "Retrieve recent memories or perform semantic search within a user, agent, or run scope."
 ---
 
-<ParamField header="Flumes-API-Key" type="string" required>
-API key for authentication.
+<ParamField header="Authorization" type="string" required>
+Bearer token used for authentication. Format: `Bearer YOUR_API_KEY`.
 </ParamField>
 
 <ParamField query="user_id" type="string">
@@ -27,8 +27,8 @@ Maximum number of results to return (1-200).
 <Tab title="List latest memories">
 <RequestExample>
 ```bash cURL
-curl -X GET "https://api.your-domain.com/v1/memories?user_id=session-123&limit=5" \
-  -H "Flumes-API-Key: $FLUMES_API_KEY"
+curl -X GET "https://api.flumes.com/v1/memories?user_id=session-123&limit=5" \
+  -H "Authorization: Bearer $FLUMES_API_KEY"
 ```
 </RequestExample>
 </Tab>
@@ -36,10 +36,10 @@ curl -X GET "https://api.your-domain.com/v1/memories?user_id=session-123&limit=5
 <Tab title="Semantic search">
 <RequestExample>
 ```bash cURL
-curl -G "https://api.your-domain.com/v1/memories" \
+curl -G "https://api.flumes.com/v1/memories" \
   --data-urlencode "user_id=session-123" \
   --data-urlencode "query=What is the capital of France?" \
-  -H "Flumes-API-Key: $FLUMES_API_KEY"
+  -H "Authorization: Bearer $FLUMES_API_KEY"
 ```
 </RequestExample>
 </Tab>
