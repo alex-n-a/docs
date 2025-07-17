@@ -15,8 +15,8 @@ Filter memories belonging to a specific user or session.
 Filter by agent identifier. At least one of `user_id` or `agent_id` is required.
 </ParamField>
 
-<ParamField query="query" type="string">
-Search term. If omitted the endpoint returns the most recent memories sorted by creation time.
+<ParamField query="prompt" type="string">
+Prompt text to run semantic similarity search against your stored memories. If omitted the endpoint returns the most recent memories.
 </ParamField>
 
 <ParamField query="limit" type="integer" default="20">
@@ -38,25 +38,6 @@ curl -X GET "https://api.flumes.ai/v1/memories?user_id=session-123&limit=5" \
 ```bash cURL
 curl -G "https://api.flumes.ai/v1/memories" \
   --data-urlencode "user_id=session-123" \
-  --data-urlencode "query=What is the capital of France?" \
+  --data-urlencode "prompt=What is the capital of France?" \
   -H "Authorization: Bearer $FLUMES_API_KEY"
 ```
-</RequestExample>
-</Tab>
-</Tabs>
-
-<ResponseExample>
-```json Success
-{
-  "results": [
-    {
-      "id": "mem_8dfe6a4f",
-      "memory": "Paris is the capital of France.",
-      "user_id": "session-123",
-      "score": 0.97,
-      "created_at": "2024-06-30T12:10:23Z"
-    }
-  ]
-}
-```
-</ResponseExample>

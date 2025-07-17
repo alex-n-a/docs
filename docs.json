@@ -45,20 +45,13 @@
           {
             "group": "Concepts",
             "pages": [
-              "guides/concepts/authentication-security",
-              "guides/concepts/pricing-limits"
+              "guides/concepts/authentication-security"
             ]
           },
           {
             "group": "Troubleshooting",
             "pages": [
               "guides/troubleshooting/error-troubleshooting"
-            ]
-          },
-          {
-            "group": "Self-hosting",
-            "pages": [
-              "guides/self-hosting/self-hosting"
             ]
           }
         ]

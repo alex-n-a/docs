@@ -11,7 +11,7 @@ Sign up at <a href="https://app.flumes.ai" target="_blank">app.flumes.ai</a> and
 <Step title="Save a memory">
 <CodeGroup>
 ```bash cURL
-curl -X POST https://api.flumes.ai/v1/memories \
+curl -X POST https://api.flumes.ai/v1/memories/ \
   -H "Authorization: Bearer $FLUMES_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
@@ -25,7 +25,7 @@ curl -X POST https://api.flumes.ai/v1/memories \
 ```javascript Node.js
 import fetch from "node-fetch";
 
-const res = await fetch("https://api.flumes.ai/v1/memories", {
+const res = await fetch("https://api.flumes.ai/v1/memories/", {
   method: "POST",
   headers: {
     Authorization: `Bearer ${process.env.FLUMES_API_KEY}`,
@@ -66,8 +66,8 @@ print(resp.json())
 
 ```bash
 curl -G https://api.flumes.ai/v1/memories \
-  --data-urlencode "user_id=session-123" \
-  --data-urlencode "query=capital" \
+  --data-urlencode "agent_id=assistant-123" \
+  --data-urlencode "prompt=capital" \
   -H "Authorization: Bearer $FLUMES_API_KEY"
 ```
 
