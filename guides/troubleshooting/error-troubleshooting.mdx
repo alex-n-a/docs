@@ -1,0 +1,19 @@
+---
+title: "Error Codes & Troubleshooting"
+description: "Resolve issues fast and keep shipping."
+---
+
+| Code | Meaning | Typical fix |
+|------|---------|-------------|
+| **401** | Invalid or missing token | Add `Authorization: Bearer …` header |
+| **403** | Key disabled / quota exceeded | Check dashboard usage or ask for upgrade |
+| **422** | Validation error | Double-check required fields – most common: `user_id` missing |
+| **429** | Rate limited | Exponential back-off, then retry |
+
+## Common mistakes
+
+<Warning>
+1. You sent both `agent_id` and `user_id` *blank* – at least one is required.<br/>
+2. JSON body isn’t an **array** of messages – wrap single message in `[]`.<br/>
+3. Using an **expired** key from staging.
+</Warning>

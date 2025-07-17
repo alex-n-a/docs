@@ -1,0 +1,60 @@
+---
+title: "Integrating with an LLM Agent"
+description: "Give your LangChain or custom agent persistent, scoped memory."
+---
+
+## LangChain example
+
+```python
+from langchain.memory import ConversationBufferMemory
+from langchain.chat_models import ChatOpenAI
+import os, requests
+
+MEMORY_API = "https://api.flumes.ai/v1"
+HEADERS = {"Authorization": f"Bearer {os.getenv('FLUMES_API_KEY')}", "Content-Type": "application/json"}
+
+class FlumesChatMemory(ConversationBufferMemory):
+    """Custom Memory class that persists to Flumes after every step."""
+
+    def save_context(self, inputs, outputs):
+        super().save_context(inputs, outputs)
+        requests.post(
+            f"{MEMORY_API}/memories",
+            headers=HEADERS,
+            json={
+                "user_id": inputs.get("session_id"),
+                "messages": [
+                    {"role": "user", "content": inputs["input"]},
+                    {"role": "assistant", "content": outputs["response"]},
+                ],
+            },
+        )
+
+    def load_memory_variables(self, inputs):
+        r = requests.get(
+            f"{MEMORY_API}/memories",
+            headers=HEADERS,
+            params={"user_id": inputs.get("session_id"), "limit": 10},
+        )
+        memories = "\n".join([m["memory"] for m in r.json()])
+        return {self.memory_key: memories}
+
+llm = ChatOpenAI(model="gpt-4o", temperature=0)
+agent_memory = FlumesChatMemory(memory_key="history")
+```
+
+<Tip>
+Use the `limit` param to prevent blowing past the model context window.
+</Tip>
+
+## Manual prompt injection
+
+If you don’t use a framework, just hydrate the chat history manually:
+
+```js
+const past = await fetch("https://api.flumes.ai/v1/memories?user_id=session-123&limit=10", {
+  headers: { Authorization: `Bearer ${process.env.FLUMES_API_KEY}` }
+}).then(r => r.json())
+
+const systemPrompt = `You are a helpful assistant. Here is what the user told you previously:\n${past.map(m => m.memory).join("\n")}`
+```

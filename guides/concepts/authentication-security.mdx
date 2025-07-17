@@ -1,0 +1,35 @@
+---
+title: "Authentication & Security"
+description: "Keep your data – and your users – safe."
+---
+
+## API Keys
+
+Generate and manage keys in the [Flumes dashboard](https://app.flumes.ai). Keys are **secret** – never commit them to Git.
+
+```text
+Authorization: Bearer FLUMES_SK_abc123
+```
+
+## Scoping
+
+| Field | Purpose |
+|-------|---------|
+| `user_id` | End-user or session isolation |
+| `agent_id` | Multi-agent separation within the same project |
+| `run_id` | Trace a single tool/chain invocation |
+
+You can combine these for fine-grained tenancy.
+
+## Transport security
+
+All requests go through **TLS 1.2+**. We terminate TLS at AWS Load Balancers before routing to the service mesh.
+
+## Data storage
+
+- Hot memory lives in encrypted EBS volumes (AES-256).<br/>
+- Backups are encrypted at rest and in transit.
+
+<Warning>
+We are **not** HIPAA compliant yet. Reach out if you need custom BAA.
+</Warning>

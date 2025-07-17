@@ -27,7 +27,7 @@ Maximum number of results to return (1-200).
 <Tab title="List latest memories">
 <RequestExample>
 ```bash cURL
-curl -X GET "https://api.flumes.com/v1/memories?user_id=session-123&limit=5" \
+curl -X GET "https://api.flumes.ai/v1/memories?user_id=session-123&limit=5" \
   -H "Authorization: Bearer $FLUMES_API_KEY"
 ```
 </RequestExample>
@@ -36,7 +36,7 @@ curl -X GET "https://api.flumes.com/v1/memories?user_id=session-123&limit=5" \
 <Tab title="Semantic search">
 <RequestExample>
 ```bash cURL
-curl -G "https://api.flumes.com/v1/memories" \
+curl -G "https://api.flumes.ai/v1/memories" \
   --data-urlencode "user_id=session-123" \
   --data-urlencode "query=What is the capital of France?" \
   -H "Authorization: Bearer $FLUMES_API_KEY"

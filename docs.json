@@ -18,35 +18,47 @@
         "tab": "Guides",
         "groups": [
           {
-            "group": "Getting started",
+            "group": "Overview",
             "pages": [
               "index",
-              "quickstart",
-              "development"
+              "guides/overview/memory-model"
             ]
           },
           {
-            "group": "Customization",
+            "group": "Quickstart",
             "pages": [
-              "essentials/settings",
-              "essentials/navigation"
+              "guides/getting-started/quickstart"
             ]
           },
           {
-            "group": "Writing content",
+            "group": "Integration",
             "pages": [
-              "essentials/markdown",
-              "essentials/code",
-              "essentials/images",
-              "essentials/reusable-snippets"
+              "guides/integration/integrating-llm-agent"
             ]
           },
           {
-            "group": "AI tools",
+            "group": "Recipes",
             "pages": [
-              "ai-tools/cursor",
-              "ai-tools/claude-code",
-              "ai-tools/windsurf"
+              "guides/recipes/production-recipes"
+            ]
+          },
+          {
+            "group": "Concepts",
+            "pages": [
+              "guides/concepts/authentication-security",
+              "guides/concepts/pricing-limits"
+            ]
+          },
+          {
+            "group": "Troubleshooting",
+            "pages": [
+              "guides/troubleshooting/error-troubleshooting"
+            ]
+          },
+          {
+            "group": "Self-hosting",
+            "pages": [
+              "guides/self-hosting/self-hosting"
             ]
           }
         ]
@@ -74,23 +86,7 @@
       }
     ],
     "global": {
-      "anchors": [
-        {
-          "anchor": "Documentation",
-          "href": "https://mintlify.com/docs",
-          "icon": "book-open-cover"
-        },
-        {
-          "anchor": "Community",
-          "href": "https://mintlify.com/community",
-          "icon": "slack"
-        },
-        {
-          "anchor": "Blog",
-          "href": "https://mintlify.com/blog",
-          "icon": "newspaper"
-        }
-      ]
+      "anchors": []
     }
   },
   "logo": {
@@ -102,13 +98,13 @@
     "links": [
       {
         "label": "Support",
-        "href": "mailto:hi@mintlify.com"
+        "href": "mailto:alex@flumes.ai"
       }
     ],
     "primary": {
       "type": "button",
-      "label": "Dashboard",
-      "href": "https://dashboard.mintlify.com"
+      "label": "Request API Key",
+      "href": "https://app.flumes.ai"
     }
   },
   "footer": {

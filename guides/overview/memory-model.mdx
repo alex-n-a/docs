@@ -1,0 +1,43 @@
+---
+title: "Memory Model Explained"
+description: "Learn how Flumes stores, indexes, and retrieves memories under the hood."
+---
+
+## What exactly is a “memory”?
+
+A **memory** is the smallest unit of information you store in Flumes—typically a chat message, document chunk, or JSON blob. Each memory is stored with:
+
+- `id` – deterministic UUID
+- `memory` – raw text content used for embedding & display
+- `metadata` – arbitrary JSON for filtering (e.g. `{"source":"chat"}`)
+- `user_id`, `agent_id`, `run_id` – **scoping keys** that isolate data across tenants/agents
+- Timestamps: `created_at`, `updated_at`
+
+## Embeddings & similarity
+
+When you create a memory we automatically:
+
+1. **Clean & truncate** the text to fit the model context window.
+2. **Generate an embedding** using an in-house model (compatible with OpenAI *text-embedding-3-small*).
+3. **Upsert** the vector into a FAISS index (<Info>Postgres + pgvector coming soon</Info>).
+
+During retrieval we perform <strong>cosine similarity search</strong> with optional metadata filters and time decay.
+
+## Hot vs cold memory
+
+<Warning>
+Cold storage is on the roadmap. For now all memories live in the “hot” (immediate) index.
+</Warning>
+
+| Tier | Latency | Use-case |
+|------|---------|----------|
+| Hot  | &lt; 200 ms | Chat history, agent state |
+| Cold | ~1 s    | Long-term knowledge base |
+
+## Decay & summarization (coming soon)
+
+We’re adding built-in <em>time decay</em> and <em>auto-summarization</em> so that stale memories roll up into compact summaries, keeping your index lean and latency snappy.
+
+<Tip>
+Follow our [changelog](https://x.com/flumes_ai) for upcoming memory operators.
+</Tip>

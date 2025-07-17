@@ -1,0 +1,57 @@
+---
+title: "Production Recipes"
+description: "Battle-tested patterns for using Flumes Memory in the wild."
+---
+
+## Store chat history + summaries
+
+1. Append raw turns to Flumes.
+2. Once you hit 50 messages, send them to your LLM with the prompt: *“Summarize the following messages in <200 tokens.”*
+3. Save the summary as a new memory with `metadata.summary=true`, then delete the 50 raw messages.
+
+## Metadata filters
+
+```bash
+curl -G https://api.flumes.ai/v1/memories \
+  --data-urlencode "user_id=session-123" \
+  --data-urlencode "metadata.source=calendar" \
+  -H "Authorization: Bearer $FLUMES_API_KEY"
+```
+
+## Time-based archiving
+
+Run a daily cron:
+
+```python
+import requests, datetime, os
+cutoff = (datetime.datetime.utcnow() - datetime.timedelta(days=30)).isoformat()
+req = requests.get(
+  "https://api.flumes.ai/v1/memories",
+  headers={"Authorization": f"Bearer {os.getenv('FLUMES_API_KEY')}"},
+  params={"user_id": "session-123", "created_before": cutoff}
+)
+for m in req.json():
+    # move to cold store or simply delete
+    requests.delete(
+        f"https://api.flumes.ai/v1/memories/{m['id']}",
+        headers={"Authorization": f"Bearer {os.getenv('FLUMES_API_KEY')}"}
+    )
+```
+
+## RAG pipeline
+
+Retrieve N memories and prepend them to your document context before embedding + search to avoid forgetting ephemeral user hints.
+
+```python
+context = "\n".join(
+    m["memory"] for m in requests.get(
+        "https://api.flumes.ai/v1/memories",
+        headers={"Authorization": f"Bearer {os.getenv('FLUMES_API_KEY')}"},
+        params={"user_id": "session-123", "limit": 5}
+    ).json()
+)
+
+rag_prompt = (
+    f"\n-----\nPrevious context:\n{context}\n-----\nQuestion: {{input}}"
+)
+```
