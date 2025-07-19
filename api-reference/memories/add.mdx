@@ -5,7 +5,7 @@ description: "Create one or more memories from chat messages."
 
 <Steps>
 <Step title="Compose request">
-Send a **POST** request to `/v1/memories/` with a JSON body that contains at least one message and at least one identifier (`user_id`, `agent_id`, or `run_id`).
+Send a **POST** request to `/v1/memories/` with a JSON body that contains at least one message and **must include `agent_id`** (recommended) or `user_id` for scoping.
 
 <ParamField header="Authorization" type="string" required>
 Bearer token used for authentication. Format: `Bearer YOUR_API_KEY`.
@@ -19,8 +19,8 @@ Array of chat messages in chronological order. Each object must include `role` (
 Session or user identifier that scopes the memory. **Required if** `agent_id` and `run_id` are omitted.
 </ParamField>
 
-<ParamField body="agent_id" type="string">
-Agent identifier that scopes the memory. Alternative to `user_id`.
+<ParamField body="agent_id" type="string" required>
+Agent identifier that scopes the memory. Required for agent-specific memories and recommended for all requests.
 </ParamField>
 
 <ParamField body="run_id" type="string">
@@ -44,12 +44,9 @@ curl -X POST "https://api.flumes.ai/v1/memories/" \
   -H "Authorization: Bearer $FLUMES_API_KEY" \
   -d '{
     "messages": [
-      {"role": "user", "content": "The capital of France is Paris."},
-      {"role": "assistant", "content": "Correct, Paris is the capital of France."}
+      {"role": "user", "content": "I want to go to Rome in July. give me tips for museums"}
     ],
-    "user_id": "session-123",
-    "metadata": {"source": "chat"},
-    "infer": true
+    "agent_id": "alex"
   }'
 ```
 </RequestExample>
@@ -63,11 +60,14 @@ A successful request returns **200 OK** with the newly created or updated memori
 {
   "results": [
     {
-      "id": "mem_8dfe6a4f",
-      "memory": "Paris is the capital of France.",
-      "event": "ADD",
-      "user_id": "session-123",
-      "created_at": "2024-06-30T12:10:23Z"
+      "id": "4a433930-24bd-4f96-9df6-4e9b0e0d9833",
+      "memory": "Wants to go to Rome in July",
+      "event": "ADD"
+    },
+    {
+      "id": "d9b95758-a7e3-4db3-b33c-55bbe77a5b9c",
+      "memory": "Looking for tips for museums",
+      "event": "ADD"
     }
   ]
 }

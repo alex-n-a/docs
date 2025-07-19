@@ -15,9 +15,9 @@ curl -X POST https://api.flumes.ai/v1/memories/ \
   -H "Authorization: Bearer $FLUMES_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
-    "user_id": "session-123",
+    "agent_id": "alex",
     "messages": [
-      {"role": "user", "content": "Paris is the capital of France"}
+      {"role": "user", "content": "I want to go to Rome in July. give me tips for museums" }
     ]
   }'
 ```
@@ -32,9 +32,9 @@ const res = await fetch("https://api.flumes.ai/v1/memories/", {
     "Content-Type": "application/json",
   },
   body: JSON.stringify({
-    user_id: "session-123",
+    agent_id: "alex",
     messages: [
-      { role: "user", content: "Paris is the capital of France" },
+      { role: "user", content: "I want to go to Rome in July. give me tips for museums" },
     ],
   }),
 });
@@ -51,9 +51,9 @@ resp = requests.post(
     "Content-Type": "application/json",
   },
   data=json.dumps({
-    "user_id": "session-123",
+    "agent_id": "alex",
     "messages": [
-      {"role": "user", "content": "Paris is the capital of France"}
+      {"role": "user", "content": "I want to go to Rome in July. give me tips for museums"}
     ],
   }),
 )
