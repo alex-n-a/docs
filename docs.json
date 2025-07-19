@@ -45,7 +45,8 @@
           {
             "group": "Concepts",
             "pages": [
-              "guides/concepts/authentication-security"
+              "guides/concepts/authentication-security",
+              "guides/concepts/memory-types"
             ]
           },
           {

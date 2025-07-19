@@ -1,0 +1,48 @@
+---
+title: "Memory Types"
+description: "Flumes automatically classifies each memory so you can filter and reason about them easily."
+---
+
+When you `POST /v1/memories/` with `infer: true` (default) Flumes runs a lightweight classifier that tags every extracted fact with a **memory_type** field.
+
+| Type | When it’s used | Example |
+|------|----------------|---------|
+| `fact` | Declarative information believed to be true | "Paris is the capital of France." |
+| `preference` | Subjective tastes, likes/dislikes, habitual behaviors | "I prefer vegetarian restaurants." |
+| `goal` | Desired outcome or achievement | "I want to run a marathon next year." |
+| `task` | Actionable instruction / to-do | "Book flights to Rome." |
+| `observation` | Something inferred or noticed by the AI/system | "User’s mood appears excited." |
+| `feedback` | Reaction to the AI’s behaviour (positive/negative) | "That answer wasn’t helpful." |
+| `plan` | Multi-step strategy to accomplish a goal | "First learn Italian basics, then practice daily." |
+| `interaction` | Raw log from a user-agent conversation or meeting | Complete message history items |
+
+## How classification works
+
+1. We prompt a small language model with the message content.
+2. Model outputs one of the above labels.
+3. Label is stored in the memory’s metadata:
+
+```json
+{
+  "id": "...",
+  "memory": "Book flights to Rome",
+  "memory_type": "task",
+  "metadata": { ... }
+}
+```
+
+## Filtering by type
+
+```bash
+curl -G https://api.flumes.ai/v1/memories \
+  --data-urlencode "agent_id=alex" \
+  --data-urlencode "prompt=rome" \
+  --data-urlencode "memory_type=task" \
+  -H "Authorization: Bearer $FLUMES_API_KEY"
+```
+
+Combine `memory_type` with time ranges or any other metadata for powerful queries.
+
+<Tip>
+Setting `infer: false` skips classification and stores memories exactly as you send them.
+</Tip>
