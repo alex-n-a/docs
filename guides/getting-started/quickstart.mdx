@@ -67,7 +67,8 @@ print(resp.json())
 ```bash
 curl -G https://api.flumes.ai/v1/memories \
   --data-urlencode "agent_id=assistant-123" \
-  --data-urlencode "prompt=capital" \
+  --data-urlencode "query=capital" \
+  --url https://api.flumes.ai/v1/memories/ \
   -H "Authorization: Bearer $FLUMES_API_KEY"
 ```
 

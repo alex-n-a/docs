@@ -15,8 +15,8 @@ Filter memories belonging to a specific user or session.
 Filter by agent identifier. At least one of `user_id` or `agent_id` is required.
 </ParamField>
 
-<ParamField query="prompt" type="string">
-Prompt text to run semantic similarity search against your stored memories. If omitted the endpoint returns the most recent memories.
+<ParamField query="query" type="string">
+Search text to run semantic similarity search against your stored memories. If omitted the endpoint returns the most recent memories.
 </ParamField>
 
 <ParamField query="limit" type="integer" default="20">
@@ -27,7 +27,7 @@ Maximum number of results to return (1-200).
 <Tab title="List latest memories">
 <RequestExample>
 ```bash cURL
-curl -X GET "https://api.flumes.ai/v1/memories?user_id=session-123&limit=5" \
+curl -X GET "https://api.flumes.ai/v1/memories/?user_id=session-123&limit=5" \
   -H "Authorization: Bearer $FLUMES_API_KEY"
 ```
 </RequestExample>
@@ -36,8 +36,8 @@ curl -X GET "https://api.flumes.ai/v1/memories?user_id=session-123&limit=5" \
 <Tab title="Semantic search">
 <RequestExample>
 ```bash cURL
-curl -G "https://api.flumes.ai/v1/memories" \
+curl -G "https://api.flumes.ai/v1/memories/" \
   --data-urlencode "user_id=session-123" \
-  --data-urlencode "prompt=What is the capital of France?" \
+  --data-urlencode "query=What is the capital of France?" \
   -H "Authorization: Bearer $FLUMES_API_KEY"
 ```
