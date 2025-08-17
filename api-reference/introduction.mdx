@@ -4,13 +4,13 @@ description: "Learn the core concepts, authentication method, rate limits, and b
 ---
 
 <Info>
-This documentation reflects the current **MVP** version of the Flumes Memory API (path prefix `/v1`) implemented in the repository `/flumes`. Future versions may add additional endpoints and data stores. All examples in this section assume the default in-memory FAISS vector store unless otherwise noted.
+This documentation reflects the current **MVP** version of the Flumes Memory API with path prefix `/v0`. Core endpoints include `/v0/context/assemble`, `/v0/memories`, `/v0/recall`, `/v0/summarize`, `/v0/prune`, and `/v0/observability/events`. Internal endpoints (not for SDKs) include `/v0/extract` and `/v0/memories:batch_upsert`.
 </Info>
 
 ## Base URL
 
 ```text
-https://api.flumes.ai/v1
+https://api.flumes.ai/v0
 ```
 
 <Tip>
@@ -19,10 +19,18 @@ This endpoint is served from Flumes Cloud at `https://api.flumes.ai`. If you run
 
 ## Authentication
 
-All requests must include an API key using the `Authorization` header:
+All requests must include an API key using the `Authorization` header. Optionally set `X-Flumes-Agent` to scope traffic to a specific agent within your org. You may also provide `Idempotency-Key` for safe retries.
 
 <ParamField header="Authorization" type="string" required>
 Bearer token for authentication. Format: `Authorization: Bearer <YOUR_API_KEY>`.
+</ParamField>
+
+<ParamField header="X-Flumes-Agent" type="string">
+Optional agent id within your org.
+</ParamField>
+
+<ParamField header="Idempotency-Key" type="string">
+Optional. Unique per org; ensures safe retries for write requests.
 </ParamField>
 
 <Info>
@@ -34,7 +42,7 @@ If the key is missing or invalid the server responds with **401 Unauthorized**.
 ## Rate limits
 
 <Warning>
-Each API key is limited to **60 requests per minute** by default. Exceeding this limit returns **429 Too Many Requests**. The limit can be adjusted with the `FLUMES_RATE_LIMIT` environment variable on the server.
+Rate limits are enforced per API key. When rate limited, responses include `X-RateLimit-Remaining` and `X-RateLimit-Reset` headers and return **429 Too Many Requests**.
 </Warning>
 
 ## Error handling
@@ -43,7 +51,12 @@ All error responses share a common JSON structure:
 
 ```json
 {
-  "detail": "Human-readable error message"
+  "error": "validation_error",
+  "message": "Field 'type' must be one of [fact,event,document,note,profile,chunk]",
+  "request_id": "req_123",
+  "details": {
+    "field": "type"
+  }
 }
 ```
 
@@ -53,16 +66,15 @@ The following table lists standard HTTP status codes returned by the API:
 |------|---------|----------------|
 | 400  | Bad Request | Missing required parameters, invalid JSON payload |
 | 401  | Unauthorized | API key missing / revoked |
-| 404  | Not Found | Memory id does not exist |
+| 404  | Not Found | Resource does not exist |
 | 429  | Too Many Requests | Rate limit or monthly quota exceeded |
 | 500  | Internal Server Error | Unhandled exception on the server |
 
 ## Endpoint quick links
 
 <CardGroup cols={2}>
-<Card title="Add memory" href="/api-reference/memories/add" icon="plus-circle">Create new memories from chat messages.</Card>
-<Card title="Get memory" href="/api-reference/memories/get" icon="magnifying-glass">Retrieve a single memory by ID.</Card>
-<Card title="Search memories" href="/api-reference/memories/search" icon="magnifying-glass">Semantic search or list recent memories.</Card>
-<Card title="Update memory" href="/api-reference/memories/update" icon="pencil-square">Modify an existing memory.</Card>
-<Card title="Delete memory" href="/api-reference/memories/delete" icon="trash">Permanently remove a memory.</Card>
+<Card title="Assemble Context" href="/api" icon="sparkles">One-call context assembly for agent turns.</Card>
+<Card title="Create Memory" href="/api#tag/Memories/operation/createMemory" icon="plus-circle">Store facts, events, and documents.</Card>
+<Card title="Recall" href="/api#tag/Retrieval/operation/recallMemories" icon="magnifying-glass">Hybrid retrieval with tunable weights.</Card>
+<Card title="Summarize" href="/api#tag/Summarization/operation/summarizeScope" icon="document-text">Rolling summaries over a scope.</Card>
 </CardGroup>

@@ -1,0 +1,22 @@
+---
+title: "PII Redaction & Sensitivity"
+description: "Control masking at assemble time and per-memory sensitivity."
+---
+
+## Policy knob
+
+Set at request time:
+
+```json
+{
+  "policy": {"pii_redaction": "auto"}
+}
+```
+
+## Per-memory sensitivity
+
+Write memories with `sensitivity: pii` to force masking.
+
+## Detecting redaction
+
+Responses include a `redaction` block when masking is applied.

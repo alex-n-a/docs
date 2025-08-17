@@ -3,58 +3,76 @@ title: "Integrating with an LLM Agent"
 description: "Give your LangChain or custom agent persistent, scoped memory."
 ---
 
-## LangChain example
+## Assemble-first loop (recommended)
 
 ```python
-from langchain.memory import ConversationBufferMemory
-from langchain.chat_models import ChatOpenAI
-import os, requests
+import os, uuid, requests
 
-MEMORY_API = "https://api.flumes.ai/v1"
-HEADERS = {"Authorization": f"Bearer {os.getenv('FLUMES_API_KEY')}", "Content-Type": "application/json"}
+API = "https://api.flumes.ai/v0"
+HEADERS = {
+  "Authorization": f"Bearer {os.getenv('FLUMES_API_KEY')}",
+  "Content-Type": "application/json",
+  "X-Flumes-Agent": "demo"
+}
 
-class FlumesChatMemory(ConversationBufferMemory):
-    """Custom Memory class that persists to Flumes after every step."""
+def assemble(entity_id: str, turn: str):
+    r = requests.post(
+        f"{API}/context/assemble",
+        headers={**HEADERS, "Idempotency-Key": str(uuid.uuid4())},
+        json={
+            "entity_id": entity_id,
+            "turn": turn,
+            "retrieval": {"preset": "balanced"},
+            "ingest": {"extract": True},
+            "return": {"include_structured_facts": True, "include_scores": True},
+            "max_context_tokens": 1200
+        },
+    )
+    r.raise_for_status()
+    return r.json()["context"]
 
-    def save_context(self, inputs, outputs):
-        super().save_context(inputs, outputs)
-        requests.post(
-            f"{MEMORY_API}/memories",
-            headers=HEADERS,
-            json={
-                "user_id": inputs.get("session_id"),
-                "messages": [
-                    {"role": "user", "content": inputs["input"]},
-                    {"role": "assistant", "content": outputs["response"]},
-                ],
-            },
-        )
-
-    def load_memory_variables(self, inputs):
-        r = requests.get(
-            f"{MEMORY_API}/memories",
-            headers=HEADERS,
-            params={"user_id": inputs.get("session_id"), "limit": 10},
-        )
-        memories = "\n".join([m["memory"] for m in r.json()])
-        return {self.memory_key: memories}
-
-llm = ChatOpenAI(model="gpt-4o", temperature=0)
-agent_memory = FlumesChatMemory(memory_key="history")
+# After each tool/turn, call assemble and feed summary + facts into your next prompt
+ctx = assemble("ent:user_123", "I want to go to Rome in July. Any museum tips?")
+prompt = (
+    "You are a helpful assistant.\n"
+    f"Facts:\n- " + "\n- ".join(ctx.get("facts", ctx.get("facts_struct", []))) + "\n\n"
+    f"Summary:\n{ctx.get('summary','')}\n"
+)
 ```
 
-<Tip>
-Use the `limit` param to prevent blowing past the model context window.
-</Tip>
+## Structured upserts (explicit facts)
 
-## Manual prompt injection
+```bash
+curl -s "https://api.flumes.ai/v0/memories:batch_upsert" \
+  -H "Authorization: Bearer $FLUMES_API_KEY" \
+  -H "Content-Type: application/json" \
+  -H "X-Flumes-Agent: demo" \
+  -H "Idempotency-Key: $(uuidgen)" \
+  -d '{
+    "items": [
+      {"type": "fact", "subject": "ent:user_123", "predicate": "likes_city", "object_text": "Rome", "keys": ["ent:user_123|likes_city"]}
+    ],
+    "upsert_conflicts": "smart"
+  }'
+```
 
-If you don’t use a framework, just hydrate the chat history manually:
+## Manual prompt injection (without a framework)
 
 ```js
-const past = await fetch("https://api.flumes.ai/v1/memories?user_id=session-123&limit=10", {
-  headers: { Authorization: `Bearer ${process.env.FLUMES_API_KEY}` }
+const ctx = await fetch("https://api.flumes.ai/v0/context/assemble", {
+  method: "POST",
+  headers: {
+    Authorization: `Bearer ${process.env.FLUMES_API_KEY}`,
+    "Content-Type": "application/json",
+    "X-Flumes-Agent": "demo",
+    "Idempotency-Key": crypto.randomUUID(),
+  },
+  body: JSON.stringify({
+    entity_id: "ent:user_123",
+    turn: "Plan July trip to Rome",
+    return: { include_structured_facts: true }
+  })
 }).then(r => r.json())
 
-const systemPrompt = `You are a helpful assistant. Here is what the user told you previously:\n${past.map(m => m.memory).join("\n")}`
+const systemPrompt = `You are a helpful assistant.\nFacts:\n- ${ctx.context.facts?.join("\n- ")}\n\nSummary:\n${ctx.context.summary}`
 ```

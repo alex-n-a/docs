@@ -12,7 +12,7 @@ description: "Battle-tested patterns for using Flumes Memory in the wild."
 ## Metadata filters
 
 ```bash
-curl -G https://api.flumes.ai/v1/memories \
+curl -G https://api.flumes.ai/v0/memories \
   --data-urlencode "user_id=session-123" \
   --data-urlencode "metadata.source=calendar" \
   -H "Authorization: Bearer $FLUMES_API_KEY"
@@ -26,14 +26,14 @@ Run a daily cron:
 import requests, datetime, os
 cutoff = (datetime.datetime.utcnow() - datetime.timedelta(days=30)).isoformat()
 req = requests.get(
-  "https://api.flumes.ai/v1/memories",
+  "https://api.flumes.ai/v0/memories",
   headers={"Authorization": f"Bearer {os.getenv('FLUMES_API_KEY')}"},
   params={"user_id": "session-123", "created_before": cutoff}
 )
 for m in req.json():
     # move to cold store or simply delete
     requests.delete(
-        f"https://api.flumes.ai/v1/memories/{m['id']}",
+        f"https://api.flumes.ai/v0/memories/{m['id']}",
         headers={"Authorization": f"Bearer {os.getenv('FLUMES_API_KEY')}"}
     )
 ```
@@ -45,7 +45,7 @@ Retrieve N memories and prepend them to your document context before embedding +
 ```python
 context = "\n".join(
     m["memory"] for m in requests.get(
-        "https://api.flumes.ai/v1/memories",
+        "https://api.flumes.ai/v0/memories",
         headers={"Authorization": f"Bearer {os.getenv('FLUMES_API_KEY')}"},
         params={"user_id": "session-123", "limit": 5}
     ).json()

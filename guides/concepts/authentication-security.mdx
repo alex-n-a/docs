@@ -11,19 +11,24 @@ Generate and manage keys in the [Flumes dashboard](https://app.flumes.ai). Keys 
 Authorization: Bearer FLUMES_SK_abc123
 ```
 
-## Scoping
+## Headers & scoping
 
-| Field | Purpose |
-|-------|---------|
-| `user_id` | End-user or session isolation |
-| `agent_id` | Multi-agent separation within the same project |
-| `run_id` | Trace a single tool/chain invocation |
+| Header | Purpose |
+|--------|---------|
+| `X-Flumes-Agent` | Scope traffic to a specific agent within your org |
+| `Idempotency-Key` | Ensure safe retries for writes |
 
-You can combine these for fine-grained tenancy.
+You can combine headers with request fields like `entity_id`, `namespace`, and `tags` for fine-grained tenancy. Org is inferred from the API key; set `namespace` per app/env.
+
+### Scopes & limits
+
+- Keys can be scoped as `read | write | admin`.
+- Rate-limit headers are returned on requests: `X-RateLimit-Remaining`, `X-RateLimit-Reset`.
+- On retries for writes, always include a stable `Idempotency-Key` to avoid duplicates.
 
 ## Transport security
 
-All requests go through **TLS 1.2+**. We terminate TLS at AWS Load Balancers before routing to the service mesh.
+All requests go through **TLS 1.2+**. We terminate TLS at cloud load balancers before routing to the service.
 
 ## Data storage
 
@@ -33,3 +38,8 @@ All requests go through **TLS 1.2+**. We terminate TLS at AWS Load Balancers bef
 <Warning>
 We are **not** HIPAA compliant yet. Reach out if you need custom BAA.
 </Warning>
+
+## Privacy & redaction
+
+- `policy.pii_redaction=auto|off` controls masking at assemble time.
+- Each memory has `sensitivity` (`auto|pii`) so you can mark sensitive items explicitly.

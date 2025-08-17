@@ -46,7 +46,13 @@
             "group": "Concepts",
             "pages": [
               "guides/concepts/authentication-security",
-              "guides/concepts/memory-types"
+              "guides/concepts/memory-types",
+              "guides/concepts/entities-and-identity",
+              "guides/concepts/conflict-keys-supersession",
+              "guides/concepts/retrieval-presets",
+              "guides/concepts/token-budgeting",
+              "guides/concepts/pii-redaction",
+              "guides/concepts/observability"
             ]
           },
           {
@@ -58,30 +64,18 @@
         ]
       },
       {
-        "tab": "API reference",
-        "groups": [
-          {
-            "group": "API documentation",
-            "pages": [
-              "api-reference/introduction"
-            ]
-          },
-          {
-            "group": "Memories API",
-            "pages": [
-              "api-reference/memories/add",
-              "api-reference/memories/get",
-              "api-reference/memories/search",
-              "api-reference/memories/update",
-              "api-reference/memories/delete"
-            ]
-          }
-        ]
+        "tab": "API",
+        "openapi": "api-reference/flumes.yaml"
       }
     ],
     "global": {
       "anchors": []
     }
+  },
+  "api": {
+    "openapi": [
+      "api-reference/flumes.yaml"
+    ]
   },
   "logo": {
     "light": "/images/flumes-logo-memory.png",

@@ -1,0 +1,30 @@
+---
+title: "Conflict Keys & Supersession"
+description: "Keep one current truth per fact and audit prior values."
+---
+
+## Why keys matter
+
+Keys ensure only one active fact per logical slot (e.g., a user's city).
+
+Example key: `"ent:user_123|likes_city"` for subject+predicate.
+
+## Writing facts with keys
+
+```bash
+curl -s "https://api.flumes.ai/v0/memories:batch_upsert" \
+  -H "Authorization: Bearer $FLUMES_API_KEY" \
+  -H "Content-Type": "application/json" \
+  -d '{
+    "items": [
+      {"type":"fact","subject":"ent:user_123","predicate":"likes_city","object_text":"Rome","keys":["ent:user_123|likes_city"]}
+    ],
+    "upsert_conflicts":"smart"
+  }'
+```
+
+When a new fact arrives with the same key, prior rows become `status: superseded` and get `valid_to` set to now.
+
+## Query current truth
+
+Filter by `status=active`, your `namespace`, and `entity_id`.

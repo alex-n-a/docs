@@ -1,0 +1,31 @@
+---
+title: "Entities & Identity"
+description: "Mint stable IDs, alias/merge, and scope data correctly."
+---
+
+## What is an `entity_id`?
+
+An entity is any subject you store knowledge about: a user, org, product, or topic. Use a stable ID like `ent:user_123`.
+
+### Best practices
+
+- Prefix with `ent:` and a domain-specific namespace (e.g., `user_`, `org_`).
+- Keep IDs stable across sessions. Do not use ephemeral chat IDs.
+- Use `namespace` per app/env (e.g., `default`, `staging`).
+
+### Naming and display
+
+You can attach a human name via the `profile` type or in `provenance`:
+
+```json
+{"type":"profile","entity_id":"ent:user_123","text":"Alex"}
+```
+
+### Merge / alias
+
+If two IDs refer to the same subject, store a `fact` like `subject=ent:user_abc`, `predicate=alias_of`, `object_entity=ent:user_123`, then query by either.
+
+### Scoping
+
+- Org is inferred from your API key.
+- Scope traffic via `X-Flumes-Agent` and `namespace`.

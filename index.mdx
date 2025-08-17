@@ -1,32 +1,23 @@
 ---
-title: "What is Flumes Memory?"
-description: "Give your AI the memory it deserves in one API call."
+title: "Flumes: Memory & Context API"
+description: "Ingest facts/events, assemble context in one call, and get structured facts, a compact summary, and sources."
 ---
 
-# Flumes Memory
+# Flumes: Memory & Context API
 
-Flumes Memory is a **managed memory layer** for large-language-model (LLM) applications. With a single HTTP call you can store, semantically index, and retrieve any chunk of text or JSON — **no vector-database plumbing required**.
+Flumes is a memory graph for AI.
 
-<Columns cols={2}>
-  <Info>
-  • **Zero-ops** – Forget about provisioning vector DBs, tuning indexes, or batch jobs.<br/>
-  • **Cost-aware** – We only charge for what you store, no per-query fees.<br/>
-  • **Opinionated APIs** – Designed around the way agents actually think: *memories in, memories out*.
-  </Info>
-  <Check>
-  Works out-of-the-box for chatbots, autonomous agents, and RAG pipelines.
-  </Check>
-</Columns>
+Send us facts, events, or notes. We store them as typed memories linked to entities, index them (hybrid semantic + keyword), and on `/v0/context/assemble` we return:
 
-## Why Flumes over traditional vector DBs?
+- a structured list of facts/events (with scores & citations),
+- a compact natural-language summary budgeted for your prompt,
+- optional ingestion of new facts extracted from the current turn.
 
-|             | Flumes Memory | Zep / Mem0 | Pinecone / Weaviate |
-|-------------|---------------|------------|---------------------|
-| Plug-and-play REST API | ✅ | ✅ | ❌ requires SDK |
-| Message-level schema | ✅ | ✅ | ❌ |
-| Built-in metadata & auth scopes | ✅ | ✅ | ❌ |
-| Cost-aware storage | ✅ | ❔ | ❌ |
+Built-ins: conflict keys & supersession, namespaces per app/env, PII redaction, observability events, and idempotency.
 
-<Note>
-Need a deeper dive? Jump to the [Memory Model](/guides/overview/memory-model) or head straight to the [Quickstart](/guides/getting-started/quickstart).
-</Note>
+<CardGroup cols={2}>
+  <Card title="Quickstart" href="/guides/getting-started/quickstart" icon="play">Store facts/events and assemble context.</Card>
+  <Card title="API" href="/api" icon="command-line">Explore endpoints and try the playground.</Card>
+  <Card title="Memory Model" href="/guides/overview/memory-model" icon="academic-cap">Entities, facts, events, and supersession.</Card>
+  <Card title="Authentication" href="/guides/concepts/authentication-security" icon="key">Keys, scopes, headers, and rate limits.</Card>
+</CardGroup>

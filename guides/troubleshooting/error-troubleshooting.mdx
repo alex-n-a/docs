@@ -6,14 +6,16 @@ description: "Resolve issues fast and keep shipping."
 | Code | Meaning | Typical fix |
 |------|---------|-------------|
 | **401** | Invalid or missing token | Add `Authorization: Bearer …` header |
-| **403** | Key disabled / quota exceeded | Check dashboard usage or ask for upgrade |
-| **422** | Validation error | Double-check required fields – most common: `user_id` missing |
-| **429** | Rate limited | Exponential back-off, then retry |
+| **403** | RLS or scope denied | Check org/agent/namespace; ensure key has access |
+| **409** | Idempotency conflict | Reuse the same `Idempotency-Key` and safely retry |
+| **422** | Validation error | Missing `entity_id` or fact fields (`subject`,`predicate`,`object_*`) |
+| **429** | Rate limited | Back off; use `X-RateLimit-Remaining` and `X-RateLimit-Reset` headers |
 
 ## Common mistakes
 
 <Warning>
-1. You sent both `agent_id` and `user_id` *blank* – at least one is required.<br/>
-2. JSON body isn’t an **array** of messages – wrap single message in `[]`.<br/>
-3. Using an **expired** key from staging.
+1. Blank agent + wrong namespace → no matches.
+2. Sending both `object_text` and `object_entity` for a fact.
+3. No `keys[]` for singleton facts, so supersession never occurs.
+4. Forgot `Idempotency-Key` on retries; server returns 409.
 </Warning>

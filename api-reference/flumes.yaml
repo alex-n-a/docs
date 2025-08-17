@@ -1,0 +1,890 @@
+openapi: 3.1.0
+info:
+  title: Flumes Memory API (MVP)
+  version: 0.9.2
+  description: |
+    Unified memory + context assembly for LLM agents.
+    Core endpoints: /v0/context/assemble, /v0/memories, /v0/recall, /v0/summarize, /v0/prune, /v0/observability/events.
+    Private endpoints (not for SDKs): /v0/extract, /v0/memories:batch_upsert.
+
+servers:
+  - url: https://api.flumes.ai
+    description: Production
+  - url: https://staging.api.flumes.ai
+    description: Staging
+
+security:
+  - bearerAuth: []
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: APIKey
+
+  parameters:
+    OrgHeader:
+      name: X-Flumes-Org
+      in: header
+      required: false
+      schema: { type: string, maxLength: 128 }
+      description: Deprecated. Org is derived from API key; header is ignored.
+    AgentHeader:
+      name: X-Flumes-Agent
+      in: header
+      required: false
+      schema: { type: string, maxLength: 128 }
+      description: Agent id within the org.
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: false
+      schema: { type: string, maxLength: 128 }
+      description: Idempotency key for safe retries (unique per org).
+    TraceQuery:
+      name: trace
+      in: query
+      required: false
+      schema: { type: boolean, default: false }
+      description: Include verbose trace/debug fields.
+
+  responses:
+    ErrorResponse:
+      description: Error envelope
+      headers:
+        X-Request-Id: { schema: { type: string } }
+        X-RateLimit-Remaining: { schema: { type: integer } }
+        X-RateLimit-Reset: { schema: { type: integer, description: "UTC seconds until limit resets" } }
+        Access-Control-Allow-Origin: { schema: { type: string }, description: "Present if CORS enabled" }
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+  schemas:
+    # ---------- Common small types ----------
+    Flags:
+      type: object
+      properties:
+        degraded: { type: boolean, default: false, description: "True if embeddings or a retrieval channel was unavailable and the server degraded gracefully." }
+        weights_renormalized: { type: boolean, default: false, description: "True if provided retrieval weights did not sum to 1 and were renormalized." }
+
+    TimeRange:
+      type: object
+      properties:
+        from: { type: string, format: date-time, nullable: true }
+        to: { type: string, format: date-time, nullable: true }
+
+    Filters:
+      type: object
+      properties:
+        types: { type: array, items: { type: string } }
+        tags_any: { type: array, items: { type: string } }
+        metadata: { type: object, additionalProperties: true }
+        time_range: { $ref: '#/components/schemas/TimeRange' }
+
+    Cost:
+      type: object
+      properties:
+        input_tokens: { type: integer, default: 0 }
+        embedding: { type: integer, default: 0 }
+        llm_tokens: { type: integer, default: 0 }
+        retrieval_ops: { type: integer, default: 0 }
+
+    Redaction:
+      type: object
+      properties:
+        applied: { type: boolean }
+        rules: { type: array, items: { type: string } }
+
+    Error:
+      type: object
+      properties:
+        error: { type: string, examples: ["unauthorized", "validation_error", "rate_limited", "conflict"] }
+        message: { type: string }
+        request_id: { type: string }
+        details: { type: object, additionalProperties: true }
+
+    # ---------- Domain objects ----------
+    Memory:
+      type: object
+      description: Base memory record (open-world). Write requests ignore org fields; org is taken from header.
+      properties:
+        memory_id: { type: string, readOnly: true }
+        org_id: { type: string, readOnly: true }
+        namespace: { type: string, default: default, maxLength: 64 }
+        agent_id: { type: string, nullable: true }
+        entity_id: { type: string, nullable: true }
+        type:
+          type: string
+          enum: [fact, event, document, note, profile, chunk]
+        text:
+          type: string
+          description: Human-readable content; for facts, this is a rendered form of subject/predicate/object.
+          maxLength: 20000
+        metadata: { type: object, additionalProperties: true }
+        tags: { type: array, items: { type: string, maxLength: 64 } }
+        timestamp: { type: string, format: date-time }
+        archived: { type: boolean, default: false }
+        sensitivity: { type: string, enum: [none, pii, auto], default: auto }
+        # Fact/graph fields (open-world)
+        subject: { type: string, nullable: true, description: "Entity id like ent:user_42" }
+        predicate: { type: string, nullable: true, maxLength: 128 }
+        object:
+          oneOf:
+            - { type: string, maxLength: 4000 }
+            - { type: number }
+            - { type: boolean }
+            - { type: object, additionalProperties: true }
+            - { type: "null" }
+        object_type: { type: string, enum: [literal, string, number, date, json, entity], nullable: true }
+        unit: { type: string, nullable: true, maxLength: 32 }
+        keys: { type: array, items: { type: string, maxLength: 128 }, nullable: true, description: "Conflict keys for supersession." }
+        valid_from: { type: string, format: date-time, nullable: true }
+        valid_to: { type: string, format: date-time, nullable: true }
+        confidence: { type: number, minimum: 0, maximum: 1, nullable: true }
+        status: { type: string, enum: [active, superseded, disputed], default: active }
+        provenance:
+          type: object
+          additionalProperties: true
+          description: "Source info; e.g., { source_turn: memory_id }"
+      required: [type, namespace, text]
+
+    Entity:
+      type: object
+      properties:
+        entity_id: { type: string, description: "ent:* stable id" }
+        type: { type: string }
+        name: { type: string, nullable: true }
+        confidence: { type: number, minimum: 0, maximum: 1, nullable: true }
+        attributes: { type: object, additionalProperties: true }
+
+    ExtractResult:
+      type: object
+      properties:
+        entities: { type: array, items: { $ref: '#/components/schemas/Entity' } }
+        facts:
+          type: array
+          items:
+            allOf:
+              - $ref: '#/components/schemas/Memory'
+            properties:
+              type: { const: fact }
+
+    # ---------- Retrieval & assembly ----------
+    RetrievalWeights:
+      type: object
+      properties:
+        semantic: { type: number, default: 0.45 }
+        bm25: { type: number, default: 0.25 }
+        graph_prior: { type: number, default: 0.15 }
+        recency_decay: { type: number, default: 0.10 }
+        confidence: { type: number, default: 0.05 }
+
+    RetrievalConfig:
+      type: object
+      properties:
+        preset:
+          type: string
+          enum: [balanced, fast, factual, recent, graphy]
+        weights: { $ref: '#/components/schemas/RetrievalWeights' }
+        normalization:
+          type: string
+          enum: [minmax, zscore, softmax]
+          default: minmax
+        recency_half_life_days: { type: integer, default: 45 }
+        top_k: { type: integer, default: 24, minimum: 1, maximum: 100 }
+        diversity:
+          type: object
+          properties:
+            enable: { type: boolean, default: true }
+            max_per_predicate: { type: integer, default: 3 }
+            max_per_source: { type: integer, default: 5 }
+        predicate_boosts:
+          type: object
+          additionalProperties: { type: number }
+        entity_boosts:
+          type: array
+          items: { type: string }
+        depth: { type: integer, default: 2, minimum: 0, maximum: 2 }
+        rerank:
+          type: object
+          properties:
+            enable: { type: boolean, default: false }
+
+    ReturnConfig:
+      type: object
+      properties:
+        include:
+          type: array
+          items:
+            type: string
+            enum: [facts, recent_events, summary, sources]
+          default: [facts, recent_events, summary, sources]
+        max_facts: { type: integer, default: 12 }
+        max_events: { type: integer, default: 6 }
+        include_scores: { type: boolean, default: false }
+        include_raw_memories: { type: boolean, default: false }
+        trace: { type: boolean, default: false }
+        include_structured_facts: { type: boolean, default: false }
+        include_raw_matches: { type: boolean, default: false }
+
+    BudgetConfig:
+      type: object
+      properties:
+        max_context_tokens: { type: integer, default: 1200, minimum: 256, maximum: 8192 }
+
+    PolicyConfig:
+      type: object
+      properties:
+        pii_redaction:
+          type: string
+          enum: [auto, off]
+          default: auto
+        egress_rehydration:
+          type: string
+          enum: [none, allowed]
+          default: none
+
+    ScoreComponents:
+      type: object
+      additionalProperties:
+        type: object
+        properties:
+          raw: { type: number }
+          norm: { type: number }
+          weight: { type: number }
+          contrib: { type: number }
+
+    Match:
+      type: object
+      properties:
+        memory_id: { type: string }
+        type: { type: string }
+        text: { type: string }
+        metadata: { type: object, additionalProperties: true }
+        score: { type: number }
+        score_components: { $ref: '#/components/schemas/ScoreComponents' }
+        reason: { type: array, items: { type: string } }
+        timestamp: { type: string, format: date-time, nullable: true }
+
+    ContextBlock:
+      type: object
+      properties:
+        facts: { type: array, items: { type: string } }
+        facts_struct:
+          type: array
+          items:
+            type: object
+            properties:
+              memory_id: { type: string }
+              type: { type: string }
+              text: { type: string }
+              subject: { type: string }
+              predicate: { type: string }
+              object_text: { type: string, nullable: true }
+              object_num: { type: number, nullable: true }
+              object_type: { type: string, nullable: true }
+              unit: { type: string, nullable: true }
+              keys: { type: array, items: { type: string }, nullable: true }
+              status: { type: string, nullable: true }
+              confidence: { type: number, nullable: true }
+              timestamp: { type: string, format: date-time, nullable: true }
+              valid_from: { type: string, format: date-time, nullable: true }
+              valid_to: { type: string, format: date-time, nullable: true }
+              score: { type: number, nullable: true }
+              metadata: { type: object, additionalProperties: true, nullable: true }
+              tags: { type: array, items: { type: string }, nullable: true }
+              provenance: { type: object, additionalProperties: true, nullable: true }
+        recent_events: { type: array, items: { type: string } }
+        summary: { type: string }
+        sources: { type: array, items: { type: string } }
+        token_counts:
+          type: object
+          properties:
+            planned: { type: integer }
+            budget: { type: integer }
+            dropped: { type: integer }
+        budget_actions:
+          type: array
+          items:
+            type: object
+            properties:
+              action: { type: string }
+              memory_id: { type: string, nullable: true }
+              notes: { type: string, nullable: true }
+
+    RetrievalSummary:
+      type: object
+      properties:
+        weights_used: { $ref: '#/components/schemas/RetrievalWeights' }
+        normalization: { type: string }
+        depth: { type: integer }
+        candidate_counts:
+          type: object
+          properties:
+            semantic: { type: integer }
+            bm25: { type: integer }
+            graph: { type: integer }
+            union: { type: integer }
+            after_filters: { type: integer }
+        diversity_actions:
+          type: object
+          properties:
+            clamped_by_predicate: { type: integer }
+            clamped_by_source: { type: integer }
+        degraded: { type: boolean }
+        budget_cut_count: { type: integer, nullable: true }
+
+paths:
+  /v0/health:
+    get:
+      summary: Liveness & readiness.
+      tags: [System]
+      operationId: getHealth
+      responses:
+        '200':
+          description: Service OK
+          headers:
+            X-Request-Id: { schema: { type: string } }
+            Access-Control-Allow-Origin: { schema: { type: string } }
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, enum: [ok] }
+                  now: { type: string, format: date-time }
+
+  /v0/meta:
+    get:
+      summary: API metadata & limits.
+      tags: [System]
+      operationId: getMeta
+      responses:
+        '200':
+          description: Metadata
+          headers:
+            X-Request-Id: { schema: { type: string } }
+            Access-Control-Allow-Origin: { schema: { type: string } }
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  version: { type: string }
+                  embeddings_provider: { type: string }
+                  limits:
+                    type: object
+                    properties:
+                      max_text_len: { type: integer, default: 20000 }
+                      max_top_k: { type: integer, default: 100 }
+                      max_context_tokens_default: { type: integer, default: 1200 }
+        '429': { $ref: '#/components/responses/ErrorResponse' }
+
+  /v0/context/assemble:
+    post:
+      summary: Build magical context for an agent turn (optionally extract & ingest).
+      tags: [Context]
+      operationId: assembleContext
+      security: [ { bearerAuth: [] } ]
+      parameters: [ { $ref: '#/components/parameters/AgentHeader' }, { $ref: '#/components/parameters/TraceQuery' }, { $ref: '#/components/parameters/IdempotencyKey' } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                entity_id: { type: string }
+                namespace: { type: string, default: default }
+                turn: { type: string, maxLength: 20000 }
+                goal: { type: string, nullable: true, maxLength: 2000 }
+                budget: { $ref: '#/components/schemas/BudgetConfig' }
+                policy: { $ref: '#/components/schemas/PolicyConfig' }
+                retrieval: { $ref: '#/components/schemas/RetrievalConfig' }
+                return: { $ref: '#/components/schemas/ReturnConfig' }
+                seed_context:
+                  type: object
+                  properties:
+                    memory_ids: { type: array, items: { type: string } }
+                    snippets: { type: array, items: { type: string, maxLength: 4000 } }
+                must_include:
+                  type: array
+                  items: { type: string, description: "memory_ids to pin if present" }
+                ingest:
+                  type: object
+                  properties:
+                    extract: { type: boolean, default: true }
+                    store_turn:
+                      type: string
+                      enum: [none, event, note, fact]
+                      default: event
+                    upsert_conflicts:
+                      type: string
+                      enum: [off, smart]
+                      default: smart
+              required: [entity_id, turn]
+      responses:
+        '200':
+          description: Context + optional extraction/ingestion report
+          headers:
+            X-Request-Id: { schema: { type: string } }
+            X-RateLimit-Remaining: { schema: { type: integer } }
+            X-RateLimit-Reset: { schema: { type: integer } }
+            Access-Control-Allow-Origin: { schema: { type: string } }
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  context: { $ref: '#/components/schemas/ContextBlock' }
+                  trace:
+                    type: object
+                    properties:
+                      summary:
+                        type: object
+                        properties:
+                          origin: { type: string }
+                          tokens_out: { type: integer, nullable: true }
+                      budget:
+                        type: object
+                        properties:
+                          origin: { type: string }
+                          chars_per_token: { type: number }
+                  extracted:
+                    allOf:
+                      - $ref: '#/components/schemas/ExtractResult'
+                    type: object
+                    properties:
+                      upserts:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            memory_id: { type: string }
+                            action: { type: string, enum: [UPSERTED, SUPERSEDED, SKIPPED] }
+                            supersedes: { type: array, items: { type: string } }
+                      matches:
+                        type: array
+                        items: { $ref: '#/components/schemas/Match' }
+                        description: Present only when return.include_raw_matches=true
+                      retrieval_summary: { $ref: '#/components/schemas/RetrievalSummary' }
+                      flags: { $ref: '#/components/schemas/Flags' }
+                      cost: { $ref: '#/components/schemas/Cost' }
+                      redaction: { $ref: '#/components/schemas/Redaction' }
+                      raw_memories:
+                        type: array
+                        description: Present only when return.include_raw_memories=true
+                        items: { $ref: '#/components/schemas/Memory' }
+                      request_id: { type: string }
+        '400': { $ref: '#/components/responses/ErrorResponse' }
+        '401': { $ref: '#/components/responses/ErrorResponse' }
+        '403': { $ref: '#/components/responses/ErrorResponse' }
+        '409': { $ref: '#/components/responses/ErrorResponse' }
+        '422': { $ref: '#/components/responses/ErrorResponse' }
+        '429': { $ref: '#/components/responses/ErrorResponse' }
+        '500': { $ref: '#/components/responses/ErrorResponse' }
+
+  /v0/memories:
+    post:
+      summary: Store a memory (fact, event, document, note, profile, chunk).
+      tags: [Memories]
+      operationId: createMemory
+      parameters: [ { $ref: '#/components/parameters/AgentHeader' }, { $ref: '#/components/parameters/IdempotencyKey' } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Memory' }
+      responses:
+        '200':
+          description: Stored
+          headers:
+            X-Request-Id: { schema: { type: string } }
+            X-RateLimit-Remaining: { schema: { type: integer } }
+            X-RateLimit-Reset: { schema: { type: integer } }
+            Access-Control-Allow-Origin: { schema: { type: string } }
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  memory_id: { type: string }
+                  embedding_indexed: { type: boolean }
+                  cost: { $ref: '#/components/schemas/Cost' }
+                  request_id: { type: string }
+        '400': { $ref: '#/components/responses/ErrorResponse' }
+        '401': { $ref: '#/components/responses/ErrorResponse' }
+        '409': { $ref: '#/components/responses/ErrorResponse' }
+        '422': { $ref: '#/components/responses/ErrorResponse' }
+        '429': { $ref: '#/components/responses/ErrorResponse' }
+
+    get:
+      summary: List memories with filters (paginate).
+      tags: [Memories]
+      operationId: listMemories
+      parameters:
+        - $ref: '#/components/parameters/AgentHeader'
+        - in: query
+          name: entity_id
+          schema: { type: string }
+        - in: query
+          name: namespace
+          schema: { type: string, default: default }
+        - in: query
+          name: type
+          schema: { type: string }
+        - in: query
+          name: tag
+          schema: { type: string }
+        - in: query
+          name: archived
+          schema: { type: boolean, default: false }
+        - in: query
+          name: before
+          schema: { type: string, format: date-time }
+        - in: query
+          name: after
+          schema: { type: string, format: date-time }
+        - in: query
+          name: sort
+          schema: { type: string, enum: [timestamp_desc, timestamp_asc], default: timestamp_desc }
+        - in: query
+          name: limit
+          schema: { type: integer, default: 50, maximum: 200 }
+          description: Hint; server may return fewer items.
+        - in: query
+          name: cursor
+          schema: { type: string, nullable: true }
+          description: Opaque cursor returned by previous page.
+      responses:
+        '200':
+          description: Page of memories
+          headers:
+            X-Request-Id: { schema: { type: string } }
+            X-RateLimit-Remaining: { schema: { type: integer } }
+            X-RateLimit-Reset: { schema: { type: integer } }
+            Access-Control-Allow-Origin: { schema: { type: string } }
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/Memory' } }
+                  next_cursor: { type: string, nullable: true }
+        '400': { $ref: '#/components/responses/ErrorResponse' }
+        '401': { $ref: '#/components/responses/ErrorResponse' }
+        '422': { $ref: '#/components/responses/ErrorResponse' }
+        '429': { $ref: '#/components/responses/ErrorResponse' }
+
+  /v0/memories/{memory_id}:
+    patch:
+      summary: Update selected fields of a memory.
+      tags: [Memories]
+      operationId: updateMemory
+      parameters:
+        - $ref: '#/components/parameters/OrgHeader'
+        - name: memory_id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                tags: { type: array, items: { type: string } }
+                metadata: { type: object, additionalProperties: true }
+                archived: { type: boolean }
+                valid_to: { type: string, format: date-time }
+                status: { type: string, enum: [active, superseded, disputed] }
+      responses:
+        '200':
+          description: Updated memory
+          headers:
+            X-Request-Id: { schema: { type: string } }
+            Access-Control-Allow-Origin: { schema: { type: string } }
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Memory'
+        '400': { $ref: '#/components/responses/ErrorResponse' }
+        '401': { $ref: '#/components/responses/ErrorResponse' }
+        '404': { $ref: '#/components/responses/ErrorResponse' }
+        '422': { $ref: '#/components/responses/ErrorResponse' }
+
+    delete:
+      summary: Soft-delete (archive) a memory (hard delete may come later).
+      tags: [Memories]
+      operationId: archiveMemory
+      parameters:
+        - $ref: '#/components/parameters/OrgHeader'
+        - name: memory_id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '204':
+          description: Archived
+          headers:
+            X-Request-Id: { schema: { type: string } }
+            Access-Control-Allow-Origin: { schema: { type: string } }
+        '401': { $ref: '#/components/responses/ErrorResponse' }
+        '404': { $ref: '#/components/responses/ErrorResponse' }
+
+  /v0/memories:batch_upsert:
+    post:
+      x-hidden: true
+      summary: (Private) Upsert multiple facts with conflict handling.
+      description: Some routers dislike colons in paths; if needed, prefer `/v0/memories/_batch_upsert`.
+      tags: [Internal]
+      operationId: batchUpsertFacts
+      parameters: [ { $ref: '#/components/parameters/OrgHeader' }, { $ref: '#/components/parameters/AgentHeader' }, { $ref: '#/components/parameters/IdempotencyKey' } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                items:
+                  type: array
+                  items:
+                    allOf:
+                      - $ref: '#/components/schemas/Memory'
+                    properties:
+                      type: { const: fact }
+                upsert_conflicts:
+                  type: string
+                  enum: [off, smart]
+                  default: smart
+      responses:
+        '200':
+          description: Batch result
+          headers:
+            X-Request-Id: { schema: { type: string } }
+            Access-Control-Allow-Origin: { schema: { type: string } }
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  upserted: { type: array, items: { type: string } }
+                  superseded: { type: array, items: { type: string } }
+                  skipped: { type: array, items: { type: string } }
+                  request_id: { type: string }
+        '400': { $ref: '#/components/responses/ErrorResponse' }
+        '401': { $ref: '#/components/responses/ErrorResponse' }
+        '422': { $ref: '#/components/responses/ErrorResponse' }
+
+  /v0/recall:
+    post:
+      summary: Hybrid retrieval over facts/events/documents with tunable weights.
+      tags: [Retrieval]
+      operationId: recallMemories
+      parameters: [ { $ref: '#/components/parameters/AgentHeader' } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                query: { type: string, maxLength: 4000 }
+                entity_id: { type: string, nullable: true }
+                namespace: { type: string, default: default }
+                filters: { $ref: '#/components/schemas/Filters' }
+                sort: { type: string, enum: [score_desc, timestamp_desc], default: score_desc }
+                cursor: { type: string, nullable: true }
+                limit: { type: integer, default: 16, maximum: 200 }
+                retrieval: { $ref: '#/components/schemas/RetrievalConfig' }
+                return: { $ref: '#/components/schemas/ReturnConfig' }
+      responses:
+        '200':
+          description: Matches with scoring
+          headers:
+            X-Request-Id: { schema: { type: string } }
+            X-RateLimit-Remaining: { schema: { type: integer } }
+            X-RateLimit-Reset: { schema: { type: integer } }
+            Access-Control-Allow-Origin: { schema: { type: string } }
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  matches: { type: array, items: { $ref: '#/components/schemas/Match' } }
+                  retrieval_summary: { $ref: '#/components/schemas/RetrievalSummary' }
+                  next_cursor: { type: string, nullable: true }
+                  flags: { $ref: '#/components/schemas/Flags' }
+                  cost: { $ref: '#/components/schemas/Cost' }
+                  raw_items:
+                    type: array
+                    description: Present only when return.include_raw_memories=true
+                    items: { $ref: '#/components/schemas/Memory' }
+                  request_id: { type: string }
+        '400': { $ref: '#/components/responses/ErrorResponse' }
+        '401': { $ref: '#/components/responses/ErrorResponse' }
+        '422': { $ref: '#/components/responses/ErrorResponse' }
+        '429': { $ref: '#/components/responses/ErrorResponse' }
+
+  /v0/summarize:
+    post:
+      x-hidden: true
+      summary: Rolling summary over a scope (entity/topic/time window).
+      tags: [Summarization]
+      operationId: summarizeScope
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                entity_id: { type: string }
+                namespace: { type: string, default: default }
+                topic: { type: string, nullable: true }
+                time_range: { $ref: '#/components/schemas/TimeRange' }
+                style: { type: string, enum: [bullet, narrative], default: bullet }
+                max_tokens: { type: integer, default: 400, minimum: 64, maximum: 2048 }
+      responses:
+        '200':
+          description: Summary text + sources
+          headers:
+            X-Request-Id: { schema: { type: string } }
+            Access-Control-Allow-Origin: { schema: { type: string } }
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  summary: { type: string }
+                  source_memory_ids: { type: array, items: { type: string } }
+                  cost: { $ref: '#/components/schemas/Cost' }
+                  request_id: { type: string }
+        '400': { $ref: '#/components/responses/ErrorResponse' }
+        '401': { $ref: '#/components/responses/ErrorResponse' }
+        '422': { $ref: '#/components/responses/ErrorResponse' }
+
+  /v0/prune:
+    post:
+      x-hidden: true
+      summary: Archive/delete/compress memories by policy.
+      tags: [Maintenance]
+      operationId: pruneMemories
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                mode: { type: string, enum: [archive, delete, compress], default: archive }
+                namespace: { type: string, default: default }
+                entity_id: { type: string, nullable: true }
+                filters:
+                  type: object
+                  properties:
+                    tags_any: { type: array, items: { type: string } }
+                    older_than_days: { type: integer, nullable: true }
+      responses:
+        '200':
+          description: Affected counts
+          headers:
+            X-Request-Id: { schema: { type: string } }
+            Access-Control-Allow-Origin: { schema: { type: string } }
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  affected: { type: integer }
+                  mode: { type: string }
+                  request_id: { type: string }
+        '400': { $ref: '#/components/responses/ErrorResponse' }
+        '401': { $ref: '#/components/responses/ErrorResponse' }
+        '422': { $ref: '#/components/responses/ErrorResponse' }
+
+  /v0/observability/events:
+    post:
+      x-hidden: true
+      summary: Append observability events (fire-and-forget).
+      tags: [Observability]
+      operationId: appendEvents
+      parameters: [ { $ref: '#/components/parameters/AgentHeader' } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                events:
+                  type: array
+                  minItems: 1
+                  maxItems: 500
+                  items:
+                    type: object
+                    properties:
+                      event_type:
+                        type: string
+                        enum:
+                          [ingest.turn, extract.run, mem.upsert, mem.supersede,
+                           recall.query, graph.walk, context.assemble, summary.generate,
+                           cost.estimate, egress.output]
+                      event_time: { type: string, format: date-time }
+                      attrs: { type: object, additionalProperties: true }
+      responses:
+        '202':
+          description: Accepted
+          headers:
+            X-Request-Id: { schema: { type: string } }
+            X-RateLimit-Remaining: { schema: { type: integer } }
+            X-RateLimit-Reset: { schema: { type: integer } }
+            Access-Control-Allow-Origin: { schema: { type: string } }
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  request_id: { type: string }
+                  accepted: { type: integer }
+                  rejected: { type: integer }
+        '400': { $ref: '#/components/responses/ErrorResponse' }
+        '401': { $ref: '#/components/responses/ErrorResponse' }
+        '422': { $ref: '#/components/responses/ErrorResponse' }
+        '429': { $ref: '#/components/responses/ErrorResponse' }
+
+  /v0/extract:
+    post:
+      x-hidden: true
+      summary: (Private) Extract entities & facts from a turn (used by assembler).
+      tags: [Internal]
+      operationId: extractEntitiesAndFacts
+      parameters: [ { $ref: '#/components/parameters/AgentHeader' } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                entity_id: { type: string }
+                turn: { type: string, maxLength: 20000 }
+      responses:
+        '200':
+          description: Extraction result
+          headers:
+            X-Request-Id: { schema: { type: string } }
+            Access-Control-Allow-Origin: { schema: { type: string } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ExtractResult' }
+        '400': { $ref: '#/components/responses/ErrorResponse' }
+        '401': { $ref: '#/components/responses/ErrorResponse' }
+        '422': { $ref: '#/components/responses/ErrorResponse' }

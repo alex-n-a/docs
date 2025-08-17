@@ -1,43 +1,41 @@
 ---
 title: "Memory Model Explained"
-description: "Learn how Flumes stores, indexes, and retrieves memories under the hood."
+description: "The schema we guarantee, how supersession works, and how retrieval blends signals."
 ---
 
 ## What exactly is a “memory”?
 
-A **memory** is the smallest unit of information you store in Flumes—typically a chat message, document chunk, or JSON blob. Each memory is stored with:
+A memory is a typed, versioned statement linked to an entity.
 
-- `id` – deterministic UUID
-- `memory` – raw text content used for embedding & display
-- `metadata` – arbitrary JSON for filtering (e.g. `{"source":"chat"}`)
-- `user_id`, `agent_id`, `run_id` – **scoping keys** that isolate data across tenants/agents
-- Timestamps: `created_at`, `updated_at`
+- `type`: `fact | event | document | note | profile | chunk`
+- `entity_id` (optional): the focal entity this memory belongs to
 
-## Embeddings & similarity
+Fact fields:
 
-When you create a memory we automatically:
+- `subject`, `predicate`, `object_text | object_num | object_entity`, `object_type`, `unit`, `valid_from`, `valid_to`, `confidence`, `keys[]`
 
-1. **Clean & truncate** the text to fit the model context window.
-2. **Generate an embedding** using an in-house model (compatible with OpenAI *text-embedding-3-small*).
-3. **Upsert** the vector into a FAISS index (<Info>Postgres + pgvector coming soon</Info>).
+Event fields:
 
-During retrieval we perform <strong>cosine similarity search</strong> with optional metadata filters and time decay.
+- `actor`, `verb`, `target`, `timestamp`
 
-## Hot vs cold memory
+Common fields:
 
-<Warning>
-Cold storage is on the roadmap. For now all memories live in the “hot” (immediate) index.
-</Warning>
+- `namespace`, `tags[]`, `metadata`, `status` (`active | superseded | disputed`), `sensitivity` (`auto | pii`), `provenance`, `created_at`, `updated_at`
+- `memory_id`: unique id (UUID/ULID)
 
-| Tier | Latency | Use-case |
-|------|---------|----------|
-| Hot  | &lt; 200 ms | Chat history, agent state |
-| Cold | ~1 s    | Long-term knowledge base |
+## Indexing & retrieval
 
-## Decay & summarization (coming soon)
+Text and structured fields are embedded and indexed with Postgres + pgvector (HNSW) and full‑text search. Retrieval blends:
 
-We’re adding built-in <em>time decay</em> and <em>auto-summarization</em> so that stale memories roll up into compact summaries, keeping your index lean and latency snappy.
+- semantic similarity, keyword/BM25, recency, predicate/entity priors, confidence, and optional graph proximity.
 
-<Tip>
-Follow our [changelog](https://x.com/flumes_ai) for upcoming memory operators.
-</Tip>
+`/v0/context/assemble` packs the highest‑value items under a token budget, emits a summary, and can extract+ingest new facts from the current turn.
+
+## Supersession
+
+Use `keys[]` (for example, `["{subject}|{predicate}"]`) to ensure only one active fact per key. New writes supersede prior ones:
+
+- previous rows are marked `status: superseded`
+- `valid_to` is set to now
+
+Querying “current truth” means filtering by `status=active` and your `namespace`/`entity_id`.

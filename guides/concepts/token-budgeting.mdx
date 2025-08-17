@@ -1,0 +1,15 @@
+---
+title: "Token Budgeting"
+description: "How max_context_tokens works and how to interpret budget_actions."
+---
+
+`max_context_tokens` sets an upper bound for the assembled context. The assembler tracks:
+
+- `token_counts`: `planned`, `budget`, `dropped`
+- `budget_actions[]`: why items were dropped or compressed
+
+Tips:
+
+- Lower the preset `top_k` or increase the budget to include more facts.
+- Use `must_include` to pin critical `memory_ids`.
+- Enable `return.include_structured_facts` to render facts compactly in prompts.

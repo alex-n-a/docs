@@ -8,84 +8,129 @@ description: "Store and retrieve your first memory in less than 5 minutes."
 Sign up at <a href="https://app.flumes.ai" target="_blank">app.flumes.ai</a> and grab your **secret key** from the dashboard.
 </Step>
 
-<Step title="Save a memory">
+<Step title="Assemble context for a turn (optionally ingest)">
 <CodeGroup>
 ```bash cURL
-curl -X POST https://api.flumes.ai/v1/memories/ \
+curl -s https://api.flumes.ai/v0/context/assemble \
   -H "Authorization: Bearer $FLUMES_API_KEY" \
   -H "Content-Type: application/json" \
+  -H "X-Flumes-Agent: demo" \
+  -H "Idempotency-Key: $(uuidgen)" \
   -d '{
-    "agent_id": "alex",
-    "messages": [
-      {"role": "user", "content": "I want to go to Rome in July. give me tips for museums" }
-    ]
+    "entity_id": "ent:user_123",
+    "turn": "I want to go to Rome in July. Any museum tips?",
+    "retrieval": { "preset": "balanced" },
+    "ingest": { "extract": false },
+    "return": {
+      "include_structured_facts": true,
+      "include_raw_matches": true,
+      "include_scores": true
+    },
+    "max_context_tokens": 1200
   }'
 ```
 
 ```javascript Node.js
-import fetch from "node-fetch";
-
-const res = await fetch("https://api.flumes.ai/v1/memories/", {
+const res = await fetch("https://api.flumes.ai/v0/context/assemble", {
   method: "POST",
   headers: {
     Authorization: `Bearer ${process.env.FLUMES_API_KEY}`,
     "Content-Type": "application/json",
+    "X-Flumes-Agent": "demo",
+    "Idempotency-Key": crypto.randomUUID(),
   },
   body: JSON.stringify({
-    agent_id: "alex",
-    messages: [
-      { role: "user", content: "I want to go to Rome in July. give me tips for museums" },
-    ],
+    entity_id: "ent:user_123",
+    turn: "I want to go to Rome in July. Any museum tips?",
+    retrieval: { preset: "balanced" },
+    ingest: { extract: false },
+    return: { include_structured_facts: true, include_raw_matches: true, include_scores: true },
+    max_context_tokens: 1200
   }),
 });
 console.log(await res.json());
 ```
 
 ```python Python
-import os, requests, json
+import os, requests, uuid
 
 resp = requests.post(
-  "https://api.flumes.ai/v1/memories",
+  "https://api.flumes.ai/v0/context/assemble",
   headers={
     "Authorization": f"Bearer {os.getenv('FLUMES_API_KEY')}",
     "Content-Type": "application/json",
+    "X-Flumes-Agent": "demo",
+    "Idempotency-Key": str(uuid.uuid4()),
   },
-  data=json.dumps({
-    "agent_id": "alex",
-    "messages": [
-      {"role": "user", "content": "I want to go to Rome in July. give me tips for museums"}
-    ],
-  }),
+  json={
+    "entity_id": "ent:user_123",
+    "turn": "I want to go to Rome in July. Any museum tips?",
+    "retrieval": { "preset": "balanced" },
+    "ingest": { "extract": False },
+    "return": { "include_structured_facts": True, "include_raw_matches": True, "include_scores": True },
+    "max_context_tokens": 1200,
+  },
 )
 print(resp.json())
 ```
 </CodeGroup>
 </Step>
 
-<Step title="Retrieve it later">
+<Step title="Recall explicitly (optional)">
 
 ```bash
-curl -G https://api.flumes.ai/v1/memories \
-  --data-urlencode "agent_id=assistant-123" \
-  --data-urlencode "query=capital" \
-  --url https://api.flumes.ai/v1/memories/ \
-  -H "Authorization: Bearer $FLUMES_API_KEY"
+curl -s https://api.flumes.ai/v0/recall \
+  -H "Authorization: Bearer $FLUMES_API_KEY" \
+  -H "Content-Type": "application/json" \
+  -d '{
+    "query": "museums in Rome",
+    "entity_id": "ent:user_123",
+    "return": { "include_structured_facts": true, "include_scores": true },
+    "limit": 8
+  }'
 ```
 
-You’ll get the most relevant memories back as JSON:
-
-```json
-[
-  {
-    "memory": "Paris is the capital of France",
-    "score": 0.94,
-    "created_at": "2024-07-01T12:34:56Z"
-  }
-]
-```
 </Step>
 </Steps>
 
 <Check>
-That’s it! You now have a persistent memory layer for your app. Explore the [API reference](/api-reference/introduction) to dive deeper.
+That’s it! You now have a persistent memory layer for your app. Explore the auto-generated [API](/api) to dive deeper.
 </Check>
+
+<Details>
+<Summary>Example assemble response (trimmed)</Summary>
+
+```json
+{
+  "context": {
+    "facts_struct": [
+      {
+        "memory_id": "mem_123",
+        "type": "fact",
+        "subject": "ent:user_123",
+        "predicate": "likes_city",
+        "object_text": "Rome",
+        "confidence": 0.86,
+        "score": 0.72,
+        "tags": ["preference"],
+        "provenance": {"source_turn": "mem_turn_1"}
+      }
+    ],
+    "recent_events": [
+      "Chatted about Rome museums"
+    ],
+    "summary": "User plans a July trip to Rome; recommend major museums and ticketing tips.",
+    "sources": ["mem_abc", "mem_def"],
+    "token_counts": {"planned": 980, "budget": 1200, "dropped": 120},
+    "budget_actions": [
+      {"action": "drop_low_score", "memory_id": "mem_xyz", "notes": "below threshold"}
+    ]
+  },
+  "trace": {"summary": {"origin": "assembler"}},
+  "retrieval_summary": {"weights_used": {"semantic": 0.45, "bm25": 0.25}},
+  "flags": {"weights_renormalized": false},
+  "request_id": "req_123"
+}
+```
+
+</Details>

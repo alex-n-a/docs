@@ -1,0 +1,20 @@
+---
+title: "Retrieval Presets"
+description: "Balanced, factual, recent, and graphy — what they tune and when to use them."
+---
+
+Presets are shorthands for retrieval weights and depth.
+
+- `balanced`: default mix of semantic, BM25, recency, priors.
+- `factual`: boost predicate/entity priors and confidence; lower recency.
+- `recent`: stronger time decay and event preference.
+- `graphy`: increase depth for related entities and predicates.
+
+Example:
+
+```json
+{
+  "retrieval": {"preset": "factual"},
+  "return": {"include_structured_facts": true}
+}
+```

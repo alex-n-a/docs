@@ -1,0 +1,18 @@
+---
+title: "Observability"
+description: "Events, request IDs, and inspecting costs/latencies."
+---
+
+We emit events like `context.assemble`, `recall.query`, `mem.upsert`, `extract.run`.
+
+- Every response includes `request_id`.
+- Use the dashboard to inspect per-call latency and cost.
+
+Append custom events:
+
+```bash
+curl -s https://api.flumes.ai/v0/observability/events \
+  -H "Authorization: Bearer $FLUMES_API_KEY" \
+  -H "Content-Type": "application/json" \
+  -d '{"events":[{"event_type":"context.assemble","event_time":"2024-07-01T12:00:00Z","attrs":{"note":"demo"}}]}'
+```
