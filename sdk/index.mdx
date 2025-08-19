@@ -1,0 +1,67 @@
+---
+title: SDK Overview
+description: Flumes SDKs – entity-first clients, simple add/search helpers, and an optional Agent helper with explicit LLM keys.
+---
+
+# Flumes SDKs
+
+Flumes gives your agents durable, structured memory via a simple, entity‑first SDK. You get a one‑line client, hybrid retrieval with sane presets, explicit budgeting, and optional helpers for grounded chat.
+
+## What you get
+
+- Entity‑first design: always scope by `entity_id` (user/session) and optional `namespace`.
+- Add → Extract → Store in a single call using context assemble (no separate summarize step).
+- Hybrid retrieval with presets (balanced, factual, recent, graphy) or explicit weights.
+- Budget caps with pack telemetry on every `add`.
+- Explicit LLM integration: the Agent helper requires an `openai_api_key` (or a custom backend).
+
+## Install
+
+```bash
+pip install flumes-ai           # core SDK
+# optional Agent helper – requires OpenAI client
+pip install "flumes-ai[agent]"   # or: pip install openai
+```
+
+Python ≥ 3.9.
+
+## Minimal example (Python)
+
+```python
+from flumes import MemoryClient
+
+client = MemoryClient(api_key="FLUMES_KEY", agent_id="travel-bot", namespace="prod")
+u = client.for_entity("user_001")
+
+res = u.add("Planning a trip to France. Like wine and quiet places.", budget="standard")
+print("pack=", res.get("pack"))
+
+hits = u.search("trip recommendations", top_k=8)
+print("matches=", len(hits.get("matches", [])))
+```
+
+## What happens on add()
+- Flumes extracts structured facts/events from your turn.
+- It stores them and returns pack telemetry (target/hard cap/used/dropped).
+- You can later retrieve with `search()` or assemble full context via the API.
+
+## Optional Agent helper (explicit key)
+
+```python
+from flumes import MemoryClient, Agent
+
+client = MemoryClient(api_key="FLUMES_KEY", agent_id="travel-bot", namespace="prod")
+agent = Agent(
+    agent_id="travel-bot",
+    entity_id="user_001",
+    memory_client=client,
+    openai_api_key="OPENAI_KEY",  # required explicitly
+)
+
+print(agent.chat("Plan my trip."))
+```
+
+The Agent helper assembles context with defaults (`preset='factual'` + small predicate boost for preferences) and composes a grounded prompt. Provide your own `llm_backend` to integrate a different LLM.
+
+## Next: Python details
+- Dive into the Python specifics, including retrieval knobs and budgeting, in the Python tab.

@@ -1,0 +1,59 @@
+---
+title: Python SDK
+description: How to use the Flumes Python SDK – add, search, retrieval knobs, budgeting, and the optional Agent helper.
+---
+
+# Python SDK
+
+## Install
+```bash
+pip install flumes-ai
+# optional Agent helper – requires OpenAI client
+pip install "flumes-ai[agent]"
+```
+
+## Initialize
+```python
+from flumes import MemoryClient
+
+client = MemoryClient(api_key="FLUMES_KEY", agent_id="demo-bot", namespace="prod")
+u = client.for_entity("user_001")
+```
+
+## Add a rich turn (extract + store)
+```python
+res = u.add(
+    "I'm Alice, living in Paris; I prefer museums over nightlife and love quiet wine bars.",
+    budget="standard",
+)
+print(res.get("pack"))
+```
+
+## Retrieve context
+```python
+hits = u.search("quiet dinner near a scenic run in Lyon", top_k=8, include_scores=True)
+print(len(hits.get("matches", [])))
+```
+
+## Retrieval knobs
+- `preset`: `balanced | factual | recent | graphy`
+- or `weights`: `{ semantic, bm25, graph_prior, recency_decay, confidence }`
+- `top_k`: candidate count (default 16)
+
+## Budgeting
+- Presets: `light` (≈400), `standard` (≈1200), `heavy` (≈2400)
+- `add()` returns `pack = { target_tokens, hard_cap_tokens, used_tokens, dropped[] }`
+
+## Optional Agent helper
+```python
+from flumes import Agent
+agent = Agent(
+  agent_id="demo-bot",
+  entity_id="user_001",
+  memory_client=client,
+  openai_api_key="OPENAI_KEY",
+)
+print(agent.chat("Plan my trip."))
+```
+
+The helper assembles context (`preset='factual'` with a light preference boost) and composes a grounded prompt. Provide a custom `llm_backend` to use another LLM.

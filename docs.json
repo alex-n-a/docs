@@ -64,6 +64,23 @@
         ]
       },
       {
+        "tab": "SDK",
+        "groups": [
+          {
+            "group": "Overview",
+            "pages": [
+              "sdk/index"
+            ]
+          },
+          {
+            "group": "Python",
+            "pages": [
+              "sdk/python"
+            ]
+          }
+        ]
+      },
+      {
         "tab": "API",
         "openapi": "api-reference/flumes.yaml"
       }
